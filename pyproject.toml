@@ -21,6 +21,9 @@ classifiers = [
 install_requires = ["numba", "numpy", "pandas"]
 python_requires = ">3.7"
 
+[metadata]
+license_files = "LICENSE"
+
 [build-system]
 requires = ["setuptools", "wheel", "toml"]
 build-backend = "setuptools.build_meta"

@@ -3,7 +3,7 @@ import numpy as np
 import numba
 
 
-@numba.jit(nopython=True, fastmath=True)
+@numba.jit(nopython=True, fastmath=True, cache=True)
 def quantile_normalize(_in_arr):
     """
     Quantile normalization
