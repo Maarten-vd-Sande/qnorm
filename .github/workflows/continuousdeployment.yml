@@ -4,7 +4,7 @@ name: continuous-deployment
 on:
   push:
     tags:
-      - 'v*' #
+      - 'v*'
 
 jobs:
   build-and-deploy:
@@ -24,9 +24,9 @@ jobs:
         pip install twine toml wheel      # packaging related
 
     # last check if tests work
-    - name: Run tests 💉
-      run: |
-        python -m unittest discover -v test
+#    - name: Run tests 💉
+#      run: |
+#        python -m unittest discover -v test
     - name: Create Release
       uses: actions/create-release@latest
       env:
@@ -41,7 +41,7 @@ jobs:
         draft: false
         prerelease: false
 
-    - name: package peaksql 📦
+    - name: package qnorm 📦
       run: |
         python setup.py sdist bdist_wheel
     - name: Publish package to Test-PyPI 🐍

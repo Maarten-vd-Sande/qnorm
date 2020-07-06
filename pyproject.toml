@@ -1,7 +1,7 @@
 [project]
 name = "qnorm"
 packages = ["qnorm"]
-description = "TODO: add peaksq description"
+description = "Quantile normalization"
 author = [
     "Maarten van der Sande <maartenvandersande@hotmail.com>"]
 license = "MIT"
