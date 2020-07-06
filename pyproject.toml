@@ -1,0 +1,26 @@
+[project]
+name = "qnorm"
+packages = ["qnorm"]
+description = "TODO: add peaksq description"
+author = [
+    "Maarten van der Sande <maartenvandersande@hotmail.com>"]
+license = "MIT"
+url = "https://github.com/Maarten-vd-Sande/qnorm"
+
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics"]
+
+install_requires = ["numba", "numpy", "pandas"]
+python_requires = ">3.7"
+
+[build-system]
+requires = ["setuptools", "wheel", "toml"]
+build-backend = "setuptools.build_meta"
