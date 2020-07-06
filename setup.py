@@ -16,6 +16,6 @@ project["long_description_content_type"] = "text/markdown"
 with open(convert_path('qnorm/__init__.py')) as ver_file:
     match = next(re.finditer('__version__ = "(.*)"', ver_file.read(), re.MULTILINE))
     project["version"] = match.group(1)
-project["data_files"] = [("", ["LICENSE"])]
+project["data_files"] = [("", ["LICENSE", "pyproject.toml"])]
 
 setup(**project)
