@@ -3,7 +3,7 @@ import numpy as np
 import numba
 
 
-@numba.jit(nopython=True, fastmath=True, cache=True)
+# @numba.jit(nopython=True, fastmath=True, cache=True)
 def quantile_normalize(_in_arr):
     """
     Quantile normalization
@@ -14,7 +14,7 @@ def quantile_normalize(_in_arr):
 
     sorted_val = np.empty(shape=(n_rows, n_cols), dtype=np.float64)
     sorted_idx = np.empty(shape=(n_rows, n_cols), dtype=np.uint32)
-    sorted_rowmeans = np.empty(shape=n_rows, dtype=np.uint32)
+    sorted_rowmeans = np.empty(shape=n_rows, dtype=np.float64)
     for col_i in range(n_cols):
         argsort = np.argsort(_in_arr[:, col_i])
         sorted_idx[:, col_i] = argsort
