@@ -10,7 +10,7 @@ import qnorm
 def main():
     """Console script for qnorm."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('table', metavar="FILE")
+    parser.add_argument("table", metavar="FILE")
     args = parser.parse_args()
 
     print(args)

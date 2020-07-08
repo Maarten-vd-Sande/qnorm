@@ -41,7 +41,7 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
         # but we fill out qnorm from lowest value to highest value
         while i < n_rows:
             n = 0
-            val = 0.
+            val = 0.0
             # since there might be duplicate numbers in a column, we search for
             # all the indices that have these duplcate numbers. Then we take
             # the mean of their rowmeans.
