@@ -10,8 +10,18 @@ import qnorm
 
 def main():
     """Console script for qnorm."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("table")
+    parser = argparse.ArgumentParser(
+        description="Quantile normalization from the CLI!"
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"qnorm: v{qnorm.__version__}",
+    )
+    parser.add_argument(
+        "table", help="input csv/tsv file which will be quantile normalized"
+    )
     args = parser.parse_args()
 
     with warnings.catch_warnings():

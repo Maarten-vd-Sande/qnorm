@@ -17,5 +17,7 @@ with open(convert_path('qnorm/__init__.py')) as ver_file:
     match = next(re.finditer('__version__ = "(.*)"', ver_file.read(), re.MULTILINE))
     project["version"] = match.group(1)
 project["data_files"] = [("", ["LICENSE", "pyproject.toml"])]
-
+project["entry_points"] = {
+    'console_scripts': ['qnorm=qnorm.cli:main'],
+}
 setup(**project)
