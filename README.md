@@ -10,27 +10,27 @@ quantile normalization made easy.
 We recreate the example of [Wikipedia](https://en.wikipedia.org/wiki/Quantile_normalization):
 
 ```
-import numpy as np
+import pandas as pd
 import qnorm
 
-vals = np.array([
-    [5, 4, 3],
-    [2, 1, 4],
-    [3, 4, 6],
-    [4, 2, 8]])
+df = pd.DataFrame({'C1': {'A': 5, 'B': 2, 'C': 3, 'D': 4},
+                   'C2': {'A': 4, 'B': 1, 'C': 4, 'D': 2},
+                   'C3': {'A': 3, 'B': 4, 'C': 6, 'D': 8}})
 
-print(qnorm.quantile_normalize(vals))
+print(qnorm.quantile_normalize(df))
 ```
 
-which prints this:
+which is what we expect:
 
 ```
->>> [[5.66666667 5.16666667 2.        ]
-     [2.         2.         3.        ]
-     [3.         5.16666667 4.66666667]
-     [4.66666667 3.         5.66666667]]
+         C1        C2        C3
+A  5.666667  5.166667  2.000000
+B  2.000000  2.000000  3.000000
+C  3.000000  5.166667  4.666667
+D  4.666667  3.000000  5.666667
 ```
 
+The function quantile_normalize also accepts numpy arrays. 
 
 ## Installation
 
@@ -52,4 +52,19 @@ Once the conda-forge channel has been enabled, qnorm can be installed with:
 
 ```
 conda install qnorm
+```
+
+### local
+
+clone the repository
+
+```
+git clone https://github.com/Maarten-vd-Sande/qnorm
+```
+
+And install it
+
+```
+cd qnorm
+pip install .
 ```

@@ -65,23 +65,23 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
 
 
 def quantile_normalize(
-    table: Union[pd.DataFrame, np.ndarray]
+    data: Union[pd.DataFrame, np.ndarray]
 ) -> Union[pd.DataFrame, np.ndarray]:
     """
     Quantile normalize your array/dataframe.
 
     returns: a quantile normalized copy of the input.
     """
-    if not isinstance(table, (pd.DataFrame, np.ndarray)):
+    if not isinstance(data, (pd.DataFrame, np.ndarray)):
         raise NotImplementedError
 
-    if len(table.shape) != 2:
+    if len(data.shape) != 2:
         raise ValueError
 
-    if isinstance(table, pd.DataFrame):
-        qn_table = table.copy()
-        qn_table[:] = _quantile_normalize(qn_table.values)
-    elif isinstance(table, np.ndarray):
-        qn_table = _quantile_normalize(table)
+    if isinstance(data, pd.DataFrame):
+        qn_data = data.copy()
+        qn_data[:] = _quantile_normalize(qn_data.values)
+    elif isinstance(data, np.ndarray):
+        qn_data = _quantile_normalize(data)
 
-    return qn_table
+    return qn_data
