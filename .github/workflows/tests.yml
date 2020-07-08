@@ -1,4 +1,4 @@
-name: test
+name: tests
 
 on: [push]
 
@@ -31,12 +31,12 @@ jobs:
     - name: Code formatting (black)
       if: always()
       run: |
-        black --check qnorm/ test/
+        black --check qnorm/ tests/
 
     - name: Code formatting (flake8)
       if: always()
       run: |
-        flake8 qnorm/ test/
+        flake8 qnorm/ tests/
 
     - name: Code annotation (mypy)
       run: |
