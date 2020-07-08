@@ -27,3 +27,9 @@ license_files = "LICENSE"
 [build-system]
 requires = ["setuptools", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 80
+
+[mypy]
+ignore_missing_imports = true

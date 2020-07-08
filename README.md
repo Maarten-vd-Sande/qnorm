@@ -1,4 +1,7 @@
 # qnorm
+[![PyPI version](https://badge.fury.io/py/qnorm.svg)](https://badge.fury.io/py/qnorm)
+[![Anaconda version](https://anaconda.org/conda-forge/qnorm/badges/version.svg)](https://anaconda.org/conda-forge/qnorm/badges/version.svg)
+
 quantile normalization made easy.
 
 ## Quick example
@@ -38,6 +41,14 @@ pip install qnorm
 
 ### conda
 
+Installing qnorm from the conda-forge channel can be achieved by adding conda-forge to your channels with:
+
 ```
-conda install -c conda-forge qnorm
+conda config --add channels conda-forge
+```
+
+Once the conda-forge channel has been enabled, qnorm can be installed with:
+
+```
+conda install qnorm
 ```

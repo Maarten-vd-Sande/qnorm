@@ -1,17 +1,28 @@
-"""Main module."""
-import numpy as np
+from typing import Union
+
 import numba
+import numpy as np
+import pandas as pd
 
 
-# @numba.jit(nopython=True, fastmath=True, cache=True)
-def quantile_normalize(_in_arr):
+@numba.jit(nopython=True, fastmath=True, cache=True)
+def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
     """
-    Quantile normalization
+    This function is the heart of this module.
+
+    It does quantile normalization in the "correct" way in the sense that it
+    takes the mean of duplicate values instead of ignoring them.
     """
+    # get the shape of the input
     n_rows = _in_arr.shape[0]
     n_cols = _in_arr.shape[1]
+
+    # our final output array
     qnorm = np.empty_like(_in_arr, dtype=np.float64)
 
+    # this is quite clunky because numba does not support the axis argument yet
+    # sorted- rowmeans, vals, and idx are helper arrays which we need to fill
+    # get the value for an index
     sorted_val = np.empty(shape=(n_rows, n_cols), dtype=np.float64)
     sorted_idx = np.empty(shape=(n_rows, n_cols), dtype=np.uint32)
     sorted_rowmeans = np.empty(shape=n_rows, dtype=np.float64)
@@ -23,14 +34,25 @@ def quantile_normalize(_in_arr):
     for row in range(n_rows):
         sorted_rowmeans[row] = np.mean(sorted_val[row])
 
+    # we quantile normalize separately per column
     for col_i in range(n_cols):
         i = 0
+        # we fill out a column not from lowest index to highest index,
+        # but we fill out qnorm from lowest value to highest value
         while i < n_rows:
-            n = val = 0
-            while i + n < n_rows and sorted_val[i, col_i] == sorted_val[i + n, col_i]:
+            n = 0
+            val = 0.
+            # since there might be duplicate numbers in a column, we search for
+            # all the indices that have these duplcate numbers. Then we take
+            # the mean of their rowmeans.
+            while (
+                i + n < n_rows
+                and sorted_val[i, col_i] == sorted_val[i + n, col_i]
+            ):
                 val += sorted_rowmeans[i + n]
                 n += 1
 
+            # fill out qnorm with our new value
             if n > 0:
                 val /= n
                 for j in range(n):
@@ -40,3 +62,26 @@ def quantile_normalize(_in_arr):
             i += n
 
     return qnorm
+
+
+def quantile_normalize(
+    table: Union[pd.DataFrame, np.ndarray]
+) -> Union[pd.DataFrame, np.ndarray]:
+    """
+    Quantile normalize your array/dataframe.
+
+    returns: a quantile normalized copy of the input.
+    """
+    if not isinstance(table, (pd.DataFrame, np.ndarray)):
+        raise NotImplementedError
+
+    if len(table.shape) != 2:
+        raise ValueError
+
+    if isinstance(table, pd.DataFrame):
+        qn_table = table.copy()
+        qn_table[:] = _quantile_normalize(qn_table.values)
+    elif isinstance(table, np.ndarray):
+        qn_table = _quantile_normalize(table)
+
+    return qn_table
