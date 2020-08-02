@@ -24,7 +24,10 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
     # sorted- rowmeans, vals, and idx are helper arrays which we need to fill
     # get the value for an index
     sorted_val = np.empty(shape=(n_rows, n_cols), dtype=np.float64)
-    sorted_idx = np.empty(shape=(n_rows, n_cols), dtype=np.uint32)  # type: ignore
+    # noinspection PyUnresolvedReferences
+    sorted_idx = np.empty(
+        shape=(n_rows, n_cols), dtype=np.uint32  # type: ignore
+    )
     sorted_rowmeans = np.empty(shape=n_rows, dtype=np.float64)
     for col_i in range(n_cols):
         argsort = np.argsort(_in_arr[:, col_i])
