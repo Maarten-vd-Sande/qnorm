@@ -24,7 +24,7 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
     # sorted- rowmeans, vals, and idx are helper arrays which we need to fill
     # get the value for an index
     sorted_val = np.empty(shape=(n_rows, n_cols), dtype=np.float64)
-    sorted_idx = np.empty(shape=(n_rows, n_cols), dtype=np.uint32)
+    sorted_idx = np.empty(shape=(n_rows, n_cols), dtype=np.uint32)  # type: ignore
     sorted_rowmeans = np.empty(shape=n_rows, dtype=np.float64)
     for col_i in range(n_cols):
         argsort = np.argsort(_in_arr[:, col_i])
@@ -87,11 +87,12 @@ def quantile_normalize(
     if len(data.shape) != 2:
         raise ValueError
 
-    qn_data = None
     if isinstance(data, pd.DataFrame):
         qn_data = data.copy()
         qn_data[:] = _quantile_normalize(qn_data.values)
     elif isinstance(data, np.ndarray):
         qn_data = _quantile_normalize(data)
+    else:
+        raise NotImplementedError
 
     return qn_data
