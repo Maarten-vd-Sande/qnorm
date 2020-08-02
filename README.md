@@ -105,6 +105,6 @@ user@comp:~$ git clone https://github.com/Maarten-vd-Sande/qnorm
 And install it
 
 ```console
-cd qnorm
-pip install .
+user@comp:~$ cd qnorm
+user@comp:~$ pip install .
 ```
