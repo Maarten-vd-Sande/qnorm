@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, overload
 
 import numba
 import numpy as np
@@ -32,7 +32,7 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
         sorted_val[:, col_i] = np.array([_in_arr[i, col_i] for i in argsort])
 
     for row in range(n_rows):
-        sorted_rowmeans[row] = np.mean(sorted_val[row])
+        sorted_rowmeans[row] = np.mean(sorted_val[row, :])
 
     # we quantile normalize separately per column
     for col_i in range(n_cols):
@@ -64,6 +64,15 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
     return qnorm
 
 
+# fmt: off
+# function overloading for the correct return type depending on the input
+@overload
+def quantile_normalize(data: pd.DataFrame) -> pd.DataFrame: ...
+@overload
+def quantile_normalize(data: np.ndarray) -> np.ndarray: ...
+# fmt: on
+
+
 def quantile_normalize(
     data: Union[pd.DataFrame, np.ndarray]
 ) -> Union[pd.DataFrame, np.ndarray]:
@@ -78,6 +87,7 @@ def quantile_normalize(
     if len(data.shape) != 2:
         raise ValueError
 
+    qn_data = None
     if isinstance(data, pd.DataFrame):
         qn_data = data.copy()
         qn_data[:] = _quantile_normalize(qn_data.values)
