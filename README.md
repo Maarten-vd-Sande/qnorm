@@ -9,7 +9,7 @@ quantile normalization made easy.
 
 We recreate the example of [Wikipedia](https://en.wikipedia.org/wiki/Quantile_normalization):
 
-```
+```python
 import pandas as pd
 import qnorm
 
@@ -76,35 +76,35 @@ D       4.666666666666666       3.0     5.666666666666666
 
 ### pip
 
-```
-pip install qnorm
+```console
+user@comp:~$ pip install qnorm
 ```
 
 ### conda
 
 Installing qnorm from the conda-forge channel can be achieved by adding conda-forge to your channels with:
 
-```
-conda config --add channels conda-forge
+```console
+user@comp:~$ conda config --add channels conda-forge
 ```
 
 Once the conda-forge channel has been enabled, qnorm can be installed with:
 
-```
-conda install qnorm
+```console
+user@comp:~$ conda install qnorm
 ```
 
 ### local
 
 clone the repository
 
-```
-git clone https://github.com/Maarten-vd-Sande/qnorm
+```console
+user@comp:~$ git clone https://github.com/Maarten-vd-Sande/qnorm
 ```
 
 And install it
 
-```
-cd qnorm
-pip install .
+```console
+user@comp:~$ cd qnorm
+user@comp:~$ pip install .
 ```
