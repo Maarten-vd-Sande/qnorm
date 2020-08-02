@@ -5,7 +5,7 @@
 
 quantile normalization made easy.
 
-## Quick example
+## Code example
 
 We recreate the example of [Wikipedia](https://en.wikipedia.org/wiki/Quantile_normalization):
 
@@ -31,6 +31,46 @@ D  4.666667  3.000000  5.666667
 ```
 
 The function quantile_normalize also accepts numpy arrays. 
+
+## Command Line Interface (CLI) example
+
+Qnorm also contains a CLI for converting csv/tsv files:
+
+
+```console
+user@comp:~$ qnorm --help
+
+usage: qnorm [-h] [-v] table
+
+Quantile normalize your table
+
+positional arguments:
+  table          input csv/tsv file which will be quantile normalized
+
+optional arguments:
+  -h, --help     show this help message and exit
+  -v, --version  show program's version number and exit
+```
+
+And again the example of [Wikipedia](https://en.wikipedia.org/wiki/Quantile_normalization):
+
+```console
+user@comp:~$ cat table.tsv
+        C1      C2      C3
+A       5       4       3
+B       2       1       4
+C       3       4       6
+D       4       2       8
+
+user@comp:~$ qnorm table.tsv
+        C1      C2      C3
+A       5.666666666666666       5.166666666666666       2.0
+B       2.0     2.0     3.0
+C       3.0     5.166666666666666       4.666666666666666
+D       4.666666666666666       3.0     5.666666666666666
+```
+
+**NOTE:** the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process.   
 
 ## Installation
 
