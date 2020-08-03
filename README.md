@@ -70,7 +70,7 @@ C       3.0     5.166666666666666       4.666666666666666
 D       4.666666666666666       3.0     5.666666666666666
 ```
 
-**NOTE:** the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process.   
+**NOTE:** the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process. Lines starting with a hashtag "#" are treated as comments and ignored.
 
 ## Installation
 
