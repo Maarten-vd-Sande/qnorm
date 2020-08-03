@@ -30,11 +30,7 @@ def main():
             args.table, sep=None, iterator=True
         )._engine.data.dialect.delimiter
 
-    df = pd.read_csv(args.table, 
-                     index_col=0, 
-                     sep=inferred_sep,
-                     comment="#"
-    )
+    df = pd.read_csv(args.table, index_col=0, sep=inferred_sep, comment="#")
     qnorm_df = qnorm.quantile_normalize(df)
 
     print(qnorm_df.to_csv(sep=inferred_sep))
