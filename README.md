@@ -30,7 +30,7 @@ C  3.000000  5.166667  4.666667
 D  4.666667  3.000000  5.666667
 ```
 
-The function quantile_normalize also accepts numpy arrays. 
+**NOTE**: The function quantile_normalize also accepts numpy arrays. 
 
 ## Command Line Interface (CLI) example
 
