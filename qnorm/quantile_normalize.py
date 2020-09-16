@@ -1,7 +1,15 @@
 from functools import singledispatch
+from typing import overload, Union
 
 import numba
 import numpy as np
+
+try:
+    import pandas as pd
+    pandas_import = True
+except ModuleNotFoundError:
+    pandas_import = False
+
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
@@ -66,16 +74,38 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
     return qnorm
 
 
-@singledispatch
-def quantile_normalize(data) -> None:
-    """
-    Quantile normalize your array/dataframe.
+if pandas_import:
+    # fmt: off
+    # function overloading for the correct return type depending on the input
+    @overload
+    def quantile_normalize(data: pd.DataFrame) -> pd.DataFrame: ...
+    @overload
+    def quantile_normalize(data: np.ndarray) -> np.ndarray: ...
+    # fmt: on
 
-    returns: a quantile normalized copy of the input.
-    """
-    raise NotImplementedError(
-        f"quantile_normalize not implemented for type {type(data)}"
-    )
+    @singledispatch
+    def quantile_normalize(
+        data: Union[pd.DataFrame, np.ndarray]
+    ) -> Union[pd.DataFrame, np.ndarray]:
+        """
+        Quantile normalize your array/dataframe.
+
+        returns: a quantile normalized copy of the input.
+        """
+        raise NotImplementedError(
+            f"quantile_normalize not implemented for type {type(data)}"
+        )
+else:
+    @singledispatch
+    def quantile_normalize(data: np.ndarray) -> np.ndarray:
+        """
+        Quantile normalize your array.
+
+        returns: a quantile normalized copy of the input.
+        """
+        raise NotImplementedError(
+            f"quantile_normalize not implemented for type {type(data)}"
+        )
 
 
 @quantile_normalize.register(np.ndarray)
@@ -90,15 +120,9 @@ def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
     return _quantile_normalize(data)
 
 
-try:
-    import pandas as pd
-
+if pandas_import:
     @quantile_normalize.register(pd.DataFrame)
     def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
         qn_data = data.copy()
         qn_data[:] = quantile_normalize_np(qn_data.values)
         return qn_data
-
-
-except ImportError:
-    pass
