@@ -6,10 +6,10 @@ import numpy as np
 
 try:
     import pandas as pd
+
     pandas_import = True
 except ModuleNotFoundError:
     pandas_import = False
-
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
@@ -95,7 +95,10 @@ if pandas_import:
         raise NotImplementedError(
             f"quantile_normalize not implemented for type {type(data)}"
         )
+
+
 else:
+
     @singledispatch
     def quantile_normalize(data: np.ndarray) -> np.ndarray:
         """
@@ -121,6 +124,7 @@ def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
 
 
 if pandas_import:
+
     @quantile_normalize.register(pd.DataFrame)
     def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
         qn_data = data.copy()
