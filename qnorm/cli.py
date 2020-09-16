@@ -7,7 +7,7 @@ try:
     import pandas as pd
 except ModuleNotFoundError:
     raise ImportError(
-        "To make use of the CLI of qnorm pandas needs to be " "installed!"
+        "To make use of the CLI of qnorm pandas needs to be installed!"
     )
 
 import qnorm
