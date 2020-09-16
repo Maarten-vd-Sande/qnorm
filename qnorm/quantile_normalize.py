@@ -73,13 +73,20 @@ def quantile_normalize(data) -> None:
 
     returns: a quantile normalized copy of the input.
     """
-    raise NotImplementedError(f"quantile_normalize not implemented for type {type(data)}")
+    raise NotImplementedError(
+        f"quantile_normalize not implemented for type {type(data)}"
+    )
 
 
 @quantile_normalize.register(np.ndarray)
 def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
-    qn_data = _quantile_normalize(data)
-    return qn_data
+    if data.dtype not in [np.float32, np.float64]:
+        raise ValueError(
+            f"The type of your data ({data.dtype}) is is not supported, "
+            f"please convert to float32 or float64."
+        )
+
+    return _quantile_normalize(data)
 
 
 try:
@@ -88,8 +95,9 @@ try:
     @quantile_normalize.register(pd.DataFrame)
     def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
         qn_data = data.copy()
-        qn_data[:] = _quantile_normalize(qn_data.values)
+        qn_data[:] = quantile_normalize_np(qn_data.values)
         return qn_data
+
 
 except ImportError:
     pass
