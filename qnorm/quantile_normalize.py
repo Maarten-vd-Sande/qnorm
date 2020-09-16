@@ -96,6 +96,12 @@ if pandas_import:
             f"quantile_normalize not implemented for type {type(data)}"
         )
 
+    @quantile_normalize.register(pd.DataFrame)
+    def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
+        qn_data = data.copy()
+        qn_data[:] = quantile_normalize_np(qn_data.values)
+        return qn_data
+
 
 else:
 
@@ -113,20 +119,12 @@ else:
 
 @quantile_normalize.register(np.ndarray)
 def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
-    if data.dtype not in [np.float32, np.float64]:
+    if not np.issubdtype(data.dtype, np.number):
         raise ValueError(
-            f"The type of your data ({data.dtype}) is is not supported, "
-            f"and might lead to undefined behaviour. Please convert to float32"
-            f" or float64. "
+            f"The type of your data ({data.dtype}) is is not "
+            f"supported, and might lead to undefined behaviour. "
+            f"Please use numeric data only."
         )
 
+    data = data.astype(dtype=np.float64)
     return _quantile_normalize(data)
-
-
-if pandas_import:
-
-    @quantile_normalize.register(pd.DataFrame)
-    def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
-        qn_data = data.copy()
-        qn_data[:] = quantile_normalize_np(qn_data.values)
-        return qn_data
