@@ -83,7 +83,8 @@ def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
     if data.dtype not in [np.float32, np.float64]:
         raise ValueError(
             f"The type of your data ({data.dtype}) is is not supported, "
-            f"please convert to float32 or float64."
+            f"and might lead to undefined behaviour. Please convert to float32"
+            f" or float64. "
         )
 
     return _quantile_normalize(data)
