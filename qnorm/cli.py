@@ -3,7 +3,12 @@ import argparse
 import sys
 import warnings
 
-import pandas as pd
+try:
+    import pandas as pd
+except ModuleNotFoundError:
+    raise ImportError(
+        "To make use of the CLI of qnorm pandas needs to be " "installed!"
+    )
 
 import qnorm
 

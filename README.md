@@ -34,7 +34,7 @@ D  4.666667  3.000000  5.666667
 
 ## Command Line Interface (CLI) example
 
-Qnorm also contains a CLI for converting csv/tsv files:
+Qnorm also contains a CLI for converting csv/tsv files. The CLI depends on pandas, but this is an optional dependency of qnorm. To make use of the CLI make sure to install pandas in your current environment as well!
 
 
 ```console
