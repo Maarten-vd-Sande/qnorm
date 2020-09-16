@@ -1,8 +1,7 @@
-from typing import Union, overload
+from functools import singledispatch
 
 import numba
 import numpy as np
-import pandas as pd
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
@@ -67,35 +66,30 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
     return qnorm
 
 
-# fmt: off
-# function overloading for the correct return type depending on the input
-@overload
-def quantile_normalize(data: pd.DataFrame) -> pd.DataFrame: ...
-@overload
-def quantile_normalize(data: np.ndarray) -> np.ndarray: ...
-# fmt: on
-
-
-def quantile_normalize(
-    data: Union[pd.DataFrame, np.ndarray]
-) -> Union[pd.DataFrame, np.ndarray]:
+@singledispatch
+def quantile_normalize(data) -> None:
     """
     Quantile normalize your array/dataframe.
 
     returns: a quantile normalized copy of the input.
     """
-    if not isinstance(data, (pd.DataFrame, np.ndarray)):
-        raise NotImplementedError
+    raise NotImplementedError(f"quantile_normalize not implemented for type {type(data)}")
 
-    if len(data.shape) != 2:
-        raise ValueError
 
-    if isinstance(data, pd.DataFrame):
+@quantile_normalize.register(np.ndarray)
+def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
+    qn_data = _quantile_normalize(data)
+    return qn_data
+
+
+try:
+    import pandas as pd
+
+    @quantile_normalize.register(pd.DataFrame)
+    def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
         qn_data = data.copy()
         qn_data[:] = _quantile_normalize(qn_data.values)
-    elif isinstance(data, np.ndarray):
-        qn_data = _quantile_normalize(data)
-    else:
-        raise NotImplementedError
+        return qn_data
 
-    return qn_data
+except ImportError:
+    pass
