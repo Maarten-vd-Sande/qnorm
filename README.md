@@ -32,6 +32,31 @@ D  4.666667  3.000000  5.666667
 
 **NOTE**: The function quantile_normalize also accepts numpy arrays. 
 
+### Normalize onto distribution
+
+You can also use the `quantile_normalize` function to normalize "onto" a distribution, by passing a target along to the function call. 
+
+```python
+import pandas as pd
+import qnorm
+
+df = pd.DataFrame({'C1': {'A': 4, 'B': 3, 'C': 2, 'D': 1},
+                   'C2': {'A': 1, 'B': 2, 'C': 3, 'D': 4}})
+
+print(qnorm.quantile_normalize(df, target=[8, 9, 10, 11]))
+```
+
+With our values now transformed onto the target:
+
+```
+     C1    C2
+A  11.0   8.0
+B  10.0   9.0
+C   9.0  10.0
+D   8.0  11.0
+```
+
+
 ## Command Line Interface (CLI) example
 
 Qnorm also contains a CLI for converting csv/tsv files. The CLI depends on pandas, but this is an optional dependency of qnorm. To make use of the CLI make sure to install pandas in your current environment as well!

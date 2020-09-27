@@ -91,7 +91,7 @@ if pandas_import:
         data: pd.DataFrame, target: Union[None, np.ndarray] = None
     ) -> pd.DataFrame:
         qn_data = data.copy()
-        qn_data[:] = quantile_normalize_np(qn_data.values)
+        qn_data[:] = quantile_normalize_np(qn_data.values, target)
         return qn_data
 
 
@@ -143,6 +143,13 @@ def quantile_normalize_np(
         target = np.mean(sorted_val, axis=1)
     else:
         # otherwise make sure target is correct data type and shape
+        if not isinstance(target, np.ndarray):
+            try:
+                target = np.array(target)
+            except Exception:
+                raise ValueError(
+                    "The target could not be converted to a " "numpy.ndarray."
+                )
         if target.ndim != 1:
             raise ValueError(
                 f"The target array should be a 1-dimensionsal vector, however "
