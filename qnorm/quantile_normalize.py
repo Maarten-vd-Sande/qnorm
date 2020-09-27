@@ -13,38 +13,19 @@ except ModuleNotFoundError:
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
-def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
+def _numba_accel_qnorm(
+    qnorm: np.ndarray,
+    sorted_idx: np.ndarray,
+    sorted_val: np.ndarray,
+    target: np.ndarray,
+) -> np.ndarray:
     """
-    This function is the heart of this module.
-
-    It does quantile normalization in the "correct" way in the sense that it
-    takes the mean of duplicate values instead of ignoring them.
+    numba accelerated "actual" qnorm normalization.
     """
     # get the shape of the input
-    n_rows = _in_arr.shape[0]
-    n_cols = _in_arr.shape[1]
+    n_rows = qnorm.shape[0]
+    n_cols = qnorm.shape[1]
 
-    # our final output array
-    qnorm = np.empty_like(_in_arr, dtype=np.float64)
-
-    # this is quite clunky because numba does not support the axis argument yet
-    # sorted- rowmeans, vals, and idx are helper arrays which we need to fill
-    # get the value for an index
-    sorted_val = np.empty(shape=(n_rows, n_cols), dtype=np.float64)
-    # noinspection PyUnresolvedReferences
-    sorted_idx = np.empty(
-        shape=(n_rows, n_cols), dtype=np.uint32  # type: ignore
-    )
-    sorted_rowmeans = np.empty(shape=n_rows, dtype=np.float64)
-    for col_i in range(n_cols):
-        argsort = np.argsort(_in_arr[:, col_i])
-        sorted_idx[:, col_i] = argsort
-        sorted_val[:, col_i] = np.array([_in_arr[i, col_i] for i in argsort])
-
-    for row in range(n_rows):
-        sorted_rowmeans[row] = np.mean(sorted_val[row, :])
-
-    # we quantile normalize separately per column
     for col_i in range(n_cols):
         i = 0
         # we fill out a column not from lowest index to highest index,
@@ -59,7 +40,7 @@ def _quantile_normalize(_in_arr: np.ndarray) -> np.ndarray:
                 i + n < n_rows
                 and sorted_val[i, col_i] == sorted_val[i + n, col_i]
             ):
-                val += sorted_rowmeans[i + n]
+                val += target[i + n]
                 n += 1
 
             # fill out qnorm with our new value
@@ -78,17 +59,26 @@ if pandas_import:
     # fmt: off
     # function overloading for the correct return type depending on the input
     @overload
-    def quantile_normalize(data: pd.DataFrame) -> pd.DataFrame: ...
+    def quantile_normalize(data: pd.DataFrame,
+                           target: Union[None, np.ndarray] = None
+                           ) -> pd.DataFrame: ...
+
     @overload
-    def quantile_normalize(data: np.ndarray) -> np.ndarray: ...
+    def quantile_normalize(data: np.ndarray,
+                           target: Union[None, np.ndarray] = None
+                           ) -> np.ndarray: ...
     # fmt: on
 
     @singledispatch
     def quantile_normalize(
-        data: Union[pd.DataFrame, np.ndarray]
+        data: Union[pd.DataFrame, np.ndarray],
+        target: Union[None, np.ndarray] = None,
     ) -> Union[pd.DataFrame, np.ndarray]:
         """
         Quantile normalize your array/dataframe.
+
+        It does quantile normalization in the "correct" way in the sense that
+        it takes the mean of duplicate values instead of ignoring them.
 
         returns: a quantile normalized copy of the input.
         """
@@ -97,7 +87,9 @@ if pandas_import:
         )
 
     @quantile_normalize.register(pd.DataFrame)
-    def quantile_normalize_pd(data: pd.DataFrame) -> pd.DataFrame:
+    def quantile_normalize_pd(
+        data: pd.DataFrame, target: Union[None, np.ndarray] = None
+    ) -> pd.DataFrame:
         qn_data = data.copy()
         qn_data[:] = quantile_normalize_np(qn_data.values)
         return qn_data
@@ -106,9 +98,14 @@ if pandas_import:
 else:
 
     @singledispatch
-    def quantile_normalize(data: np.ndarray) -> np.ndarray:
+    def quantile_normalize(
+        data: np.ndarray, target: Union[None, np.ndarray] = None
+    ) -> np.ndarray:
         """
         Quantile normalize your array.
+
+        It does quantile normalization in the "correct" way in the sense that
+        it takes the mean of duplicate values instead of ignoring them.
 
         returns: a quantile normalized copy of the input.
         """
@@ -118,13 +115,53 @@ else:
 
 
 @quantile_normalize.register(np.ndarray)
-def quantile_normalize_np(data: np.ndarray) -> np.ndarray:
+def quantile_normalize_np(
+    data: np.ndarray, target: Union[None, np.ndarray] = None
+) -> np.ndarray:
+    # check for supported dtypes
     if not np.issubdtype(data.dtype, np.number):
         raise ValueError(
             f"The type of your data ({data.dtype}) is is not "
             f"supported, and might lead to undefined behaviour. "
             f"Please use numeric data only."
         )
+    # numba does not (yet) support smaller
+    elif any(
+        np.issubdtype(data.dtype, dtype) for dtype in [np.int32, np.float32]
+    ):
+        dtype = np.float32
+    else:
+        dtype = np.float64
 
-    data = data.astype(dtype=np.float64)
-    return _quantile_normalize(data)
+    # we do the sorting outside of numba because the numpy implementation is
+    # faster, and numba does not support the axis argument.
+    sorted_idx = np.argsort(data, axis=0)
+    sorted_val = np.take_along_axis(data, sorted_idx, axis=0)
+
+    if target is None:
+        # if no target supplied get the (sorted) rowmeans
+        target = np.mean(sorted_val, axis=1)
+    else:
+        # otherwise make sure target is correct data type and shape
+        if target.ndim != 1:
+            raise ValueError(
+                f"The target array should be a 1-dimensionsal vector, however "
+                f"you supplied a vector with {target.ndim} dimensions"
+            )
+        if target.shape[0] != data.shape[0]:
+            raise ValueError(
+                f"The target array does not contain the same amount of values "
+                f"({target.shape[0]}) as the data contains rows "
+                f"({data.shape[0]})"
+            )
+        if not np.issubdtype(target.dtype, np.number):
+            raise ValueError(
+                f"The type of your target ({data.dtype}) is is not "
+                f"supported, and might lead to undefined behaviour. "
+                f"Please use numeric data only."
+            )
+        target = target.astype(dtype=dtype)
+
+    data = data.astype(dtype=dtype)
+
+    return _numba_accel_qnorm(data, sorted_idx, sorted_val, target)

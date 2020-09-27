@@ -68,6 +68,45 @@ class TestQnorm(unittest.TestCase):
         qnorm_arr = qnorm.quantile_normalize(arr)
         np.testing.assert_array_almost_equal(arr, qnorm_arr)
 
+    def test_004_double(self):
+        """
+        if dtype is double, return double
+        """
+        arr = np.random.normal(0, 1, size=(20, 3))
+        arr = arr.astype(np.float64)
+        qnorm_arr = qnorm.quantile_normalize(arr)
+        assert qnorm_arr.dtype == np.float64
+
+    def test_005_single(self):
+        """
+        if dtype is single, return single
+        """
+        arr = np.random.normal(0, 1, size=(20, 3))
+        arr = arr.astype(np.float32)
+        qnorm_arr = qnorm.quantile_normalize(arr)
+        assert qnorm_arr.dtype == np.float32
+
+    def test_006_target(self):
+        """
+        test if the target is used instead of the qnorm values
+        """
+        arr = np.array([np.arange(0, 10), np.arange(0, 10)]).T
+        np.random.shuffle(arr)
+        target = np.arange(10, 20)
+        qnorm_arr = qnorm.quantile_normalize(arr, target=target)
+        for val in target:
+            assert (
+                val in qnorm_arr[:, 0] and val in qnorm_arr[:, 1]
+            ), f"value {val} not in qnorm array"
+
+    def test_007_short_target(self):
+        """
+        test if an error is raised with a invalid sized target
+        """
+        arr = np.array([np.arange(0, 10), np.arange(0, 10)]).T
+        target = np.arange(10, 15)
+        self.assertRaises(ValueError, qnorm.quantile_normalize, arr, target)
+
 
 if __name__ == "__main__":
     unittest.main()
