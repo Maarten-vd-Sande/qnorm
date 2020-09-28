@@ -2,7 +2,7 @@
 name = "qnorm"
 packages = ["qnorm"]
 description = "Quantile normalization"
-author = [
+authors = [
     "Maarten van der Sande <maartenvandersande@hotmail.com>"]
 license = "MIT"
 url = "https://github.com/Maarten-vd-Sande/qnorm"
