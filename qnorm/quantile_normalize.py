@@ -141,18 +141,22 @@ def quantile_normalize_np(
 
     # sort the array, single process or multiprocessing
     if ncpus == 1:
+        # single process sorting
         data = _data.astype(dtype=dtype)
-
         # we do the sorting outside of numba because the numpy implementation
         # is faster, and numba does not support the axis argument.
         sorted_idx = np.argsort(data, axis=0)
     elif ncpus > 1:
-
+        # multiproces sorting
+        # first we make a shared array
         data_shared = RawArray(
             np.ctypeslib.as_ctypes_type(dtype), _data.shape[0] * _data.shape[1]
         )
+        # and wrap it with a numpy array and fill it with our data
         data = np.frombuffer(data_shared, dtype=dtype).reshape(_data.shape)
         np.copyto(data, _data.astype(dtype))
+
+        # now multiprocess sort
         with Pool(
             processes=ncpus,
             initializer=worker_init,
