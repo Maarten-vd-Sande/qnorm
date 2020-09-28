@@ -107,6 +107,31 @@ class TestQnorm(unittest.TestCase):
         target = np.arange(10, 15)
         self.assertRaises(ValueError, qnorm.quantile_normalize, arr, target)
 
+    def test_008_wiki_ncpus(self):
+        """
+        test if an error is raised with a invalid sized target
+        """
+        df = pd.DataFrame(
+            {
+                "C1": {"A": 5.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                "C2": {"A": 4.0, "B": 1.0, "C": 4.0, "D": 2.0},
+                "C3": {"A": 3.0, "B": 4.0, "C": 6.0, "D": 8.0},
+            }
+        )
+
+        result = np.array(
+            [
+                [5.66666667, 5.16666667, 2.0],
+                [2.0, 2.0, 3.0],
+                [3.0, 5.16666667, 4.66666667],
+                [4.66666667, 3.0, 5.66666667],
+            ]
+        )
+
+        np.testing.assert_array_almost_equal(
+            qnorm.quantile_normalize(df, ncpus=10).values, result
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

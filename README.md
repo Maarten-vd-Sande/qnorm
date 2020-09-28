@@ -32,6 +32,14 @@ D  4.666667  3.000000  5.666667
 
 **NOTE**: The function quantile_normalize also accepts numpy arrays. 
 
+### Multicore support
+
+To accelerate the computation you can pass a ncpus argument to the function call and qnorm will be run in parallel:
+
+```python
+qnorm.quantile_normalize(df, ncpus=8)  
+```
+
 ### Normalize onto distribution
 
 You can also use the `quantile_normalize` function to normalize "onto" a distribution, by passing a target along to the function call. 

@@ -1,3 +1,4 @@
+from multiprocessing import Pool, RawArray
 from functools import singledispatch
 from typing import overload, Union
 
@@ -60,12 +61,14 @@ if pandas_import:
     # function overloading for the correct return type depending on the input
     @overload
     def quantile_normalize(data: pd.DataFrame,
-                           target: Union[None, np.ndarray] = None
+                           target: Union[None, np.ndarray] = None,
+                           ncpus: int = 1
                            ) -> pd.DataFrame: ...
 
     @overload
     def quantile_normalize(data: np.ndarray,
-                           target: Union[None, np.ndarray] = None
+                           target: Union[None, np.ndarray] = None,
+                           ncpus: int = 1
                            ) -> np.ndarray: ...
     # fmt: on
 
@@ -73,6 +76,7 @@ if pandas_import:
     def quantile_normalize(
         data: Union[pd.DataFrame, np.ndarray],
         target: Union[None, np.ndarray] = None,
+        ncpus: int = 1,
     ) -> Union[pd.DataFrame, np.ndarray]:
         """
         Quantile normalize your array/dataframe.
@@ -88,10 +92,12 @@ if pandas_import:
 
     @quantile_normalize.register(pd.DataFrame)
     def quantile_normalize_pd(
-        data: pd.DataFrame, target: Union[None, np.ndarray] = None
+        data: pd.DataFrame,
+        target: Union[None, np.ndarray] = None,
+        ncpus: int = 1,
     ) -> pd.DataFrame:
         qn_data = data.copy()
-        qn_data[:] = quantile_normalize_np(qn_data.values, target)
+        qn_data[:] = quantile_normalize_np(qn_data.values, target, ncpus)
         return qn_data
 
 
@@ -116,26 +122,48 @@ else:
 
 @quantile_normalize.register(np.ndarray)
 def quantile_normalize_np(
-    data: np.ndarray, target: Union[None, np.ndarray] = None
+    _data: np.ndarray, target: Union[None, np.ndarray] = None, ncpus: int = 1
 ) -> np.ndarray:
     # check for supported dtypes
-    if not np.issubdtype(data.dtype, np.number):
+    if not np.issubdtype(_data.dtype, np.number):
         raise ValueError(
-            f"The type of your data ({data.dtype}) is is not "
+            f"The type of your data ({_data.dtype}) is is not "
             f"supported, and might lead to undefined behaviour. "
             f"Please use numeric data only."
         )
     # numba does not (yet) support smaller
     elif any(
-        np.issubdtype(data.dtype, dtype) for dtype in [np.int32, np.float32]
+        np.issubdtype(_data.dtype, dtype) for dtype in [np.int32, np.float32]
     ):
         dtype = np.float32
     else:
         dtype = np.float64
 
-    # we do the sorting outside of numba because the numpy implementation is
-    # faster, and numba does not support the axis argument.
-    sorted_idx = np.argsort(data, axis=0)
+    # sort the array, single process or multiprocessing
+    if ncpus == 1:
+        data = _data.astype(dtype=dtype)
+
+        # we do the sorting outside of numba because the numpy implementation
+        # is faster, and numba does not support the axis argument.
+        sorted_idx = np.argsort(data, axis=0)
+    elif ncpus > 1:
+
+        data_shared = RawArray(
+            np.ctypeslib.as_ctypes_type(dtype), _data.shape[0] * _data.shape[1]
+        )
+        data = np.frombuffer(data_shared, dtype=dtype).reshape(_data.shape)
+        np.copyto(data, _data.astype(dtype))
+        with Pool(
+            processes=ncpus,
+            initializer=worker_init,
+            initargs=(data_shared, dtype, data.shape),
+        ) as pool:
+            sorted_idx = np.array(
+                pool.map(worker_sort, range(data.shape[1])), dtype=np.int64
+            ).T
+    else:
+        raise ValueError("The number of cpus needs to be a positive integer.")
+
     sorted_val = np.take_along_axis(data, sorted_idx, axis=0)
 
     if target is None:
@@ -169,6 +197,27 @@ def quantile_normalize_np(
             )
         target = target.astype(dtype=dtype)
 
-    data = data.astype(dtype=dtype)
-
     return _numba_accel_qnorm(data, sorted_idx, sorted_val, target)
+
+
+# functions needed for parallel sorting
+var_dict = {}
+
+
+def worker_init(X, X_dtype, X_shape):
+    """
+    helper function to pass our reference of X to the sorter
+    """
+    var_dict["X"] = X
+    var_dict["X_dtype"] = X_dtype
+    var_dict["X_shape"] = X_shape
+
+
+def worker_sort(i):
+    """
+    argsort a single axis
+    """
+    X_np = np.frombuffer(var_dict["X"], dtype=var_dict["X_dtype"]).reshape(
+        var_dict["X_shape"]
+    )
+    return np.argsort(X_np[:, i])
