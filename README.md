@@ -75,7 +75,7 @@ import qnorm
 
 test = np.random.randint(0, 100, size=(1_000_000, 100), dtype=np.int32)
 
-qnorm.quantile_normalize(test, ncpus=10)
+qnorm.quantile_normalize(test, ncpus=4)
 ```
 
 ```bash
@@ -87,6 +87,12 @@ qnorm.quantile_normalize(test, ncpus=10)
 It takes only 7.5 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
 
 The test array we made consists of `100 * 1_000_000 = 100_000_000` single point precision integers, so four bytes each (400_000_000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases.
+
+### Scaling of ncpus
+
+Using more than four cpus generally does not lead to a much bigger speedup. 
+
+![mini benchmark](imgs/benchmark.png)
 
 ## Command Line Interface (CLI) example
 
