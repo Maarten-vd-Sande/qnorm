@@ -78,10 +78,11 @@ test = np.random.randint(0, 100, size=(1_000_000, 100), dtype=np.int32)
 qnorm.quantile_normalize(test, ncpus=4)
 ```
 
-```bash
-/usr/bin/time --verbose python small_qnorm_script.py |& grep -P "(wall clock|Maximum resident set size)"
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.62
-	Maximum resident set size (kbytes): 2768884
+```console
+user@comp:~$ /usr/bin/time --verbose python small_qnorm_script.py |& grep -P "(wall clock|Maximum resident set size)"
+
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.62
+Maximum resident set size (kbytes): 2768884
 ```
 
 It takes only 7.5 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
