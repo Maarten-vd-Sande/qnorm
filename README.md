@@ -64,6 +64,29 @@ C   9.0  10.0
 D   8.0  11.0
 ```
 
+## How fast is it and what is its memory usage?
+
+How better to measure this than a little benchmark / example? For this example we will consider 100 replicates, each consisting of one million integer values between 0 and 100, which should give us plenty of rank ties. 
+
+```python
+import numpy as np
+import qnorm
+
+
+test = np.random.randint(0, 100, size=(1_000_000, 100), dtype=np.int32)
+
+qnorm.quantile_normalize(test, ncpus=10)
+```
+
+```bash
+/usr/bin/time --verbose python small_qnorm_script.py |& grep -P "(wall clock|Maximum resident set size)"
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.62
+	Maximum resident set size (kbytes): 2768884
+```
+
+It takes only 7.5 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
+
+The test array we made consists of `100 * 1_000_000 = 100_000_000` single point precision integers, so four bytes each (400_000_000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases.
 
 ## Command Line Interface (CLI) example
 
