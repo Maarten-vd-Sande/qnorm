@@ -3,7 +3,7 @@
 [![Anaconda version](https://anaconda.org/conda-forge/qnorm/badges/version.svg)](https://anaconda.org/conda-forge/qnorm)
 ![tests](https://github.com/Maarten-vd-Sande/qnorm/workflows/tests/badge.svg)
 
-Quantile normalization made easy! This tool was developed as the current implementations scattered across the web do not correctly resolve collisions/ties in the ranks. Properly resolving rank ties is important when ties happen frequently, such as when working with discrete numbers (integers) in count tables. This implementation should be relatively *fast*, and can use multiple cores to sort the columns and tie-resolvement is accelerated by numba.
+Quantile normalization made easy! This tool was developed as the current (Python) implementations scattered across the web do not correctly resolve collisions/ties in the ranks. Properly resolving rank ties is important when ties happen frequently, such as when working with discrete numbers (integers) in count tables. This implementation should be relatively *fast*, and can use multiple cores to sort the columns and tie-resolvement is accelerated by numba.
 
 ## Code example
 
@@ -81,7 +81,7 @@ qnorm.quantile_normalize(test, ncpus=4)
 ```console
 user@comp:~$ /usr/bin/time --verbose python small_qnorm_script.py |& grep -P "(wall clock|Maximum resident set size)"
 
-Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.62
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.52
 Maximum resident set size (kbytes): 2768884
 ```
 
