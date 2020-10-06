@@ -18,7 +18,7 @@ class TestQnorm(unittest.TestCase):
 
     def test_001_pandas(self):
         """
-        test numpy support
+        test pandas support
         """
         df = pd.DataFrame(
             {
@@ -130,6 +130,42 @@ class TestQnorm(unittest.TestCase):
 
         np.testing.assert_array_almost_equal(
             qnorm.quantile_normalize(df, ncpus=10).values, result
+        )
+
+    def test_009_axis_numpy(self):
+        """
+        test numpy axis support
+        """
+        arr = np.random.normal(size=(50, 4))
+
+        np.testing.assert_array_almost_equal(
+            qnorm.quantile_normalize(arr.T, axis=0),
+            qnorm.quantile_normalize(arr, axis=1),
+        )
+        np.testing.assert_array_almost_equal(
+            qnorm.quantile_normalize(arr, axis=1),
+            qnorm.quantile_normalize(arr.T, axis=0),
+        )
+
+    def test_010_axis_pandas(self):
+        """
+        test numpy axis support
+        """
+        df = pd.DataFrame(
+            {
+                "C1": {"A": 5.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                "C2": {"A": 4.0, "B": 1.0, "C": 4.0, "D": 2.0},
+                "C3": {"A": 3.0, "B": 4.0, "C": 6.0, "D": 8.0},
+            }
+        )
+
+        np.testing.assert_array_almost_equal(
+            qnorm.quantile_normalize(df.T, axis=0),
+            qnorm.quantile_normalize(df, axis=1),
+        )
+        np.testing.assert_array_almost_equal(
+            qnorm.quantile_normalize(df, axis=1),
+            qnorm.quantile_normalize(df.T, axis=0),
         )
 
 

@@ -5,6 +5,8 @@ from typing import overload, Union
 import numba
 import numpy as np
 
+from .util import worker_init, worker_sort
+
 try:
     import pandas as pd
 
@@ -13,60 +15,19 @@ except ModuleNotFoundError:
     pandas_import = False
 
 
-@numba.jit(nopython=True, fastmath=True, cache=True)
-def _numba_accel_qnorm(
-    qnorm: np.ndarray,
-    sorted_idx: np.ndarray,
-    sorted_val: np.ndarray,
-    target: np.ndarray,
-) -> np.ndarray:
-    """
-    numba accelerated "actual" qnorm normalization.
-    """
-    # get the shape of the input
-    n_rows = qnorm.shape[0]
-    n_cols = qnorm.shape[1]
-
-    for col_i in range(n_cols):
-        i = 0
-        # we fill out a column not from lowest index to highest index,
-        # but we fill out qnorm from lowest value to highest value
-        while i < n_rows:
-            n = 0
-            val = 0.0
-            # since there might be duplicate numbers in a column, we search for
-            # all the indices that have these duplcate numbers. Then we take
-            # the mean of their rowmeans.
-            while (
-                i + n < n_rows
-                and sorted_val[i, col_i] == sorted_val[i + n, col_i]
-            ):
-                val += target[i + n]
-                n += 1
-
-            # fill out qnorm with our new value
-            if n > 0:
-                val /= n
-                for j in range(n):
-                    idx = sorted_idx[i + j, col_i]
-                    qnorm[idx, col_i] = val
-
-            i += n
-
-    return qnorm
-
-
 if pandas_import:
     # fmt: off
     # function overloading for the correct return type depending on the input
     @overload
     def quantile_normalize(data: pd.DataFrame,
+                           axis: int = 1,
                            target: Union[None, np.ndarray] = None,
                            ncpus: int = 1
                            ) -> pd.DataFrame: ...
 
     @overload
     def quantile_normalize(data: np.ndarray,
+                           axis: int = 1,
                            target: Union[None, np.ndarray] = None,
                            ncpus: int = 1
                            ) -> np.ndarray: ...
@@ -75,6 +36,7 @@ if pandas_import:
     @singledispatch
     def quantile_normalize(
         data: Union[pd.DataFrame, np.ndarray],
+        axis: int = 1,
         target: Union[None, np.ndarray] = None,
         ncpus: int = 1,
     ) -> Union[pd.DataFrame, np.ndarray]:
@@ -93,11 +55,18 @@ if pandas_import:
     @quantile_normalize.register(pd.DataFrame)
     def quantile_normalize_pd(
         data: pd.DataFrame,
+        axis: int = 1,
         target: Union[None, np.ndarray] = None,
         ncpus: int = 1,
     ) -> pd.DataFrame:
         qn_data = data.copy()
-        qn_data[:] = quantile_normalize_np(qn_data.values, target, ncpus)
+
+        # if we use axis 0, then already transpose here, and not later
+        if axis == 0:
+            qn_data = qn_data.T
+            axis = 1
+
+        qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
 
@@ -105,7 +74,7 @@ else:
 
     @singledispatch
     def quantile_normalize(
-        data: np.ndarray, target: Union[None, np.ndarray] = None
+        data: np.ndarray, axis: int = 1, target: Union[None, np.ndarray] = None
     ) -> np.ndarray:
         """
         Quantile normalize your array.
@@ -122,7 +91,10 @@ else:
 
 @quantile_normalize.register(np.ndarray)
 def quantile_normalize_np(
-    _data: np.ndarray, target: Union[None, np.ndarray] = None, ncpus: int = 1
+    _data: np.ndarray,
+    axis: int = 1,
+    target: Union[None, np.ndarray] = None,
+    ncpus: int = 1,
 ) -> np.ndarray:
     # check for supported dtypes
     if not np.issubdtype(_data.dtype, np.number):
@@ -138,6 +110,18 @@ def quantile_normalize_np(
         dtype = np.float32
     else:
         dtype = np.float64
+
+    # take a transposed view of our data if axis is one
+    if axis == 0:
+        _data = np.transpose(_data)
+    elif axis == 1:
+        pass
+    else:
+        raise ValueError(
+            f"qnorm only supports 2 dimensional data, so the axis"
+            f"has to be either 0 or 1, but you set axis to "
+            f"{axis}."
+        )
 
     # sort the array, single process or multiprocessing
     if ncpus == 1:
@@ -204,24 +188,44 @@ def quantile_normalize_np(
     return _numba_accel_qnorm(data, sorted_idx, sorted_val, target)
 
 
-# functions needed for parallel sorting
-var_dict = {}
-
-
-def worker_init(X, X_dtype, X_shape):
+@numba.jit(nopython=True, fastmath=True, cache=True)
+def _numba_accel_qnorm(
+    qnorm: np.ndarray,
+    sorted_idx: np.ndarray,
+    sorted_val: np.ndarray,
+    target: np.ndarray,
+) -> np.ndarray:
     """
-    helper function to pass our reference of X to the sorter
+    numba accelerated "actual" qnorm normalization.
     """
-    var_dict["X"] = X
-    var_dict["X_dtype"] = X_dtype
-    var_dict["X_shape"] = X_shape
+    # get the shape of the input
+    n_rows = qnorm.shape[0]
+    n_cols = qnorm.shape[1]
 
+    for col_i in range(n_cols):
+        i = 0
+        # we fill out a column not from lowest index to highest index,
+        # but we fill out qnorm from lowest value to highest value
+        while i < n_rows:
+            n = 0
+            val = 0.0
+            # since there might be duplicate numbers in a column, we search for
+            # all the indices that have these duplcate numbers. Then we take
+            # the mean of their rowmeans.
+            while (
+                i + n < n_rows
+                and sorted_val[i, col_i] == sorted_val[i + n, col_i]
+            ):
+                val += target[i + n]
+                n += 1
 
-def worker_sort(i):
-    """
-    argsort a single axis
-    """
-    X_np = np.frombuffer(var_dict["X"], dtype=var_dict["X_dtype"]).reshape(
-        var_dict["X_shape"]
-    )
-    return np.argsort(X_np[:, i])
+            # fill out qnorm with our new value
+            if n > 0:
+                val /= n
+                for j in range(n):
+                    idx = sorted_idx[i + j, col_i]
+                    qnorm[idx, col_i] = val
+
+            i += n
+
+    return qnorm

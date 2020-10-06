@@ -17,7 +17,7 @@ df = pd.DataFrame({'C1': {'A': 5, 'B': 2, 'C': 3, 'D': 4},
                    'C2': {'A': 4, 'B': 1, 'C': 4, 'D': 2},
                    'C3': {'A': 3, 'B': 4, 'C': 6, 'D': 8}})
 
-print(qnorm.quantile_normalize(df))
+print(qnorm.quantile_normalize(df, axis=1))
 ```
 
 which is what we expect:
@@ -29,6 +29,8 @@ B  2.000000  2.000000  3.000000
 C  3.000000  5.166667  4.666667
 D  4.666667  3.000000  5.666667
 ```
+
+Qnorm accepts an (optional) axis argument, which is used to normalize along. If axis=1 (default), standardize each sample (column), if axis=0, standardize each feature (row).
 
 **NOTE**: The function quantile_normalize also accepts numpy arrays. 
 
