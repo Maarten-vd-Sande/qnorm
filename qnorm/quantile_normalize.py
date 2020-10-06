@@ -46,7 +46,15 @@ if pandas_import:
         It does quantile normalization in the "correct" way in the sense that
         it takes the mean of duplicate values instead of ignoring them.
 
-        returns: a quantile normalized copy of the input.
+        Args:
+            data: numpy.ndarray or pandas.DataFrame to be normalized
+            axis: axis along to normalize. Axis=1 (default) normalizes each
+                  column/sample which gives them identical distributions.
+                  Axis=0 normalizes each row/feature giving them all identical
+                  distributions.
+            target: distribution to normalize onto
+
+        Returns: a quantile normalized copy of the input.
         """
         raise NotImplementedError(
             f"quantile_normalize not implemented for type {type(data)}"
@@ -82,7 +90,15 @@ else:
         It does quantile normalization in the "correct" way in the sense that
         it takes the mean of duplicate values instead of ignoring them.
 
-        returns: a quantile normalized copy of the input.
+        Args:
+            data: numpy.ndarray or pandas.DataFrame to be normalized
+            axis: axis along to normalize. Axis=1 (default) normalizes each
+                  column/sample which gives them identical distributions.
+                  Axis=0 normalizes each row/feature giving them all identical
+                  distributions.
+            target: distribution to normalize onto
+
+        Returns: a quantile normalized copy of the input.
         """
         raise NotImplementedError(
             f"quantile_normalize not implemented for type {type(data)}"
