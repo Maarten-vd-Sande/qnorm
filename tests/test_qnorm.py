@@ -99,7 +99,21 @@ class TestQnorm(unittest.TestCase):
                 val in qnorm_arr[:, 0] and val in qnorm_arr[:, 1]
             ), f"value {val} not in qnorm array"
 
-    def test_007_short_target(self):
+    def test_007_target_notsorted(self):
+        """
+        make sure an unsorted target gets sorted first
+        """
+        arr = np.array([np.arange(0, 10), np.arange(0, 10)]).T
+        np.random.shuffle(arr)
+        # take the reverse, which should be sorted by qnorm
+        target = np.arange(10, 20)[::-1]
+        qnorm_arr = qnorm.quantile_normalize(arr, target=target)
+        for val in target:
+            assert (
+                val in qnorm_arr[:, 0] and val in qnorm_arr[:, 1]
+            ), f"value {val} not in qnorm array"
+
+    def test_008_short_target(self):
         """
         test if an error is raised with a invalid sized target
         """
@@ -107,7 +121,7 @@ class TestQnorm(unittest.TestCase):
         target = np.arange(10, 15)
         self.assertRaises(ValueError, qnorm.quantile_normalize, arr, target)
 
-    def test_008_wiki_ncpus(self):
+    def test_009_wiki_ncpus(self):
         """
         test if an error is raised with a invalid sized target
         """
@@ -132,7 +146,7 @@ class TestQnorm(unittest.TestCase):
             qnorm.quantile_normalize(df, ncpus=10).values, result
         )
 
-    def test_009_axis_numpy(self):
+    def test_010_axis_numpy(self):
         """
         test numpy axis support
         """
@@ -147,7 +161,7 @@ class TestQnorm(unittest.TestCase):
             qnorm.quantile_normalize(arr.T, axis=0),
         )
 
-    def test_010_axis_pandas(self):
+    def test_011_axis_pandas(self):
         """
         test numpy axis support
         """

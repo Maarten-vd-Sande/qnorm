@@ -199,7 +199,7 @@ def quantile_normalize_np(
                 f"supported, and might lead to undefined behaviour. "
                 f"Please use numeric data only."
             )
-        target = target.astype(dtype=dtype)
+        target = np.sort(target.astype(dtype=dtype))
 
     return _numba_accel_qnorm(data, sorted_idx, sorted_val, target)
 
