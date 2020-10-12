@@ -6,6 +6,19 @@ import numpy as np
 import pandas as pd
 
 import qnorm
+import tracemalloc
+
+
+tracemalloc.start()
+
+df1 = pd.DataFrame(
+    {
+        "C1": {"A": 5.0, "B": 2.0, "C": 3.0, "D": 4.0},
+        "C2": {"A": 4.0, "B": 1.0, "C": 4.0, "D": 2.0},
+        "C3": {"A": 3.0, "B": 4.0, "C": 6.0, "D": 8.0},
+    }
+)
+df1.to_csv("test.csv")
 
 
 class TestQnorm(unittest.TestCase):
@@ -180,6 +193,91 @@ class TestQnorm(unittest.TestCase):
         np.testing.assert_array_almost_equal(
             qnorm.quantile_normalize(df, axis=1),
             qnorm.quantile_normalize(df.T, axis=0),
+        )
+
+    def test_012_from_file(self):
+        """
+        test the basic quantile_normalize_file functionality
+        """
+        qnorm.quantile_normalize_file("test.csv", "test_out.csv")
+        df1 = pd.read_csv("test.csv", index_col=0, header=0)
+        df2 = pd.read_csv("test_out.csv", index_col=0, header=0)
+
+        np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df1), df2.values, decimal=5
+        )
+
+    def test_013_from_file_rowchunk(self):
+        """
+        test the quantile_normalize_file with rowchunks functionality
+        """
+        df1 = pd.read_csv("test.csv", index_col=0, header=0)
+
+        for rowchunksize in range(1, 10):
+            qnorm.quantile_normalize_file(
+                "test.csv", "test_out.csv", rowchunksize=rowchunksize
+            )
+            df2 = pd.read_csv("test_out.csv", index_col=0, header=0)
+
+            np.testing.assert_almost_equal(
+                qnorm.quantile_normalize(df1), df2.values, decimal=5
+            )
+
+    def test_014_from_file_colchunk(self):
+        """
+        test the quantile_normalize_file with colchunks functionality
+        """
+        df1 = pd.read_csv("test.csv", index_col=0, header=0)
+
+        for colchunksize in range(1, 10):
+            qnorm.quantile_normalize_file(
+                "test.csv", "test_out.csv", colchunksize=colchunksize
+            )
+            df2 = pd.read_csv("test_out.csv", index_col=0, header=0)
+
+            np.testing.assert_almost_equal(
+                qnorm.quantile_normalize(df1), df2.values, decimal=5
+            )
+
+    def test_015_from_file_colrowchunk(self):
+        """
+        test the quantile_normalize_file with both row and colchunks
+        """
+        df1 = pd.read_csv("test.csv", index_col=0, header=0)
+
+        for colchunksize in range(1, 10):
+            for rowchunksize in range(1, 10):
+                qnorm.quantile_normalize_file(
+                    "test.csv",
+                    "test_out.csv",
+                    rowchunksize=rowchunksize,
+                    colchunksize=colchunksize,
+                )
+                df2 = pd.read_csv("test_out.csv", index_col=0, header=0)
+
+                np.testing.assert_almost_equal(
+                    qnorm.quantile_normalize(df1), df2.values, decimal=5
+                )
+
+    def test_016_from_file_largefile(self):
+        """
+        test whether or not quantile_normalize_file works with a larger random file
+        """
+        np.random.seed(42)
+        df1 = pd.DataFrame(index=range(5000), columns=range(100))
+        df1[:] = np.random.randint(0, 100, size=df1.shape)
+        df1.to_csv("test_large.csv")
+
+        qnorm.quantile_normalize_file(
+            "test_large.csv",
+            "test_large_out.csv",
+            rowchunksize=11,
+            colchunksize=11,
+        )
+        df2 = pd.read_csv("test_large_out.csv", index_col=0, header=0)
+
+        np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df1), df2.values, decimal=5
         )
 
 

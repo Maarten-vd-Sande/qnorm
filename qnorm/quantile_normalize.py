@@ -1,11 +1,13 @@
-from multiprocessing import Pool, RawArray
+import warnings
+import math
+import tempfile
 from functools import singledispatch
 from typing import overload, Union
 
 import numba
 import numpy as np
 
-from .util import worker_init, worker_sort
+from .util import read_n_lines, _glue_together, _parallel_argsort
 
 try:
     import pandas as pd
@@ -22,14 +24,24 @@ if pandas_import:
     def quantile_normalize(data: pd.DataFrame,
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
-                           ncpus: int = 1
+                           ncpus: int = 1,
+                           **kwargs
+                           ) -> pd.DataFrame: ...
+
+    @overload
+    def quantile_normalize(data: str,
+                           axis: int = 1,
+                           target: Union[None, np.ndarray] = None,
+                           ncpus: int = 1,
+                           **kwargs
                            ) -> pd.DataFrame: ...
 
     @overload
     def quantile_normalize(data: np.ndarray,
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
-                           ncpus: int = 1
+                           ncpus: int = 1,
+                           **kwargs
                            ) -> np.ndarray: ...
     # fmt: on
 
@@ -39,6 +51,7 @@ if pandas_import:
         axis: int = 1,
         target: Union[None, np.ndarray] = None,
         ncpus: int = 1,
+        **kwargs,
     ) -> Union[pd.DataFrame, np.ndarray]:
         """
         Quantile normalize your array/dataframe.
@@ -53,6 +66,7 @@ if pandas_import:
                   Axis=0 normalizes each row/feature giving them all identical
                   distributions.
             target: distribution to normalize onto
+            ncpus: number of cpus to use for normalization
 
         Returns: a quantile normalized copy of the input.
         """
@@ -78,11 +92,81 @@ if pandas_import:
         return qn_data
 
 
+    def quantile_normalize_file(
+        infile: str,
+        outfile: str,
+        rowchunksize: int = 1_000,
+        colchunksize: int = 64,
+        ncpus: int = 1
+    ) -> pd.DataFrame:
+        """
+
+        Args:
+            infile:
+            outfile:
+            rowchunksize:
+            colchunksize:
+            ncpus:
+        Returns:
+
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            delimiter = pd.read_csv(
+                infile, sep=None, iterator=True, nrows=1000, comment="#",
+                index_col=0
+            )._engine.data.dialect.delimiter
+            columns = [str(col) for col in pd.read_csv(infile, sep=delimiter, nrows=10, comment="#", index_col=0).columns]
+            nr_cols = len(columns)
+
+        index = [str(row) for row in pd.read_csv(infile, sep=delimiter, comment="#", index_col=0, usecols=[0]).index]
+        nr_rows = len(index)
+
+        target = np.zeros(nr_rows)
+
+        # get the target
+        for i in range(math.ceil(nr_cols / colchunksize)):
+            col_start, col_end = i * colchunksize, np.clip((i + 1) * colchunksize, 0, nr_cols)
+            df = pd.read_csv(infile, sep=delimiter, comment="#", index_col=0, usecols=[0, *list(range(col_start + 1 , col_end + 1))])
+            df = df.astype('float32')
+            values, sorted_idx = _parallel_argsort(df.values, ncpus, df.values.dtype)
+            sorted_val = np.take_along_axis(values, sorted_idx, axis=0)
+            subtarget = np.mean(sorted_val, axis=1)
+            target += (subtarget - target) * ((col_end - col_start) / (col_end))
+
+        tmpfiles = []
+        tmpfile = tempfile.NamedTemporaryFile()
+        tmpfiles.append(tmpfile)
+        with open(tmpfile.name, "w") as f:
+            f.write("\n".join(index))
+        for i in range(math.ceil(nr_cols / colchunksize)):
+            tmpfile = tempfile.NamedTemporaryFile()
+            tmpfiles.append(tmpfile)
+            col_start, col_end = i * colchunksize, np.clip((i + 1) * colchunksize, 0, nr_cols)
+            df = pd.read_csv(infile, sep=delimiter, comment="#", index_col=0, usecols=[0, *list(range(col_start + 1 , col_end + 1))])
+            df = df.astype('float32')
+            qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
+            qnormed.to_csv(tmpfile.name, header=False, index=False, sep=delimiter)
+
+        open_tmpfiles = [read_n_lines(tmpfile.name, rowchunksize) for tmpfile in tmpfiles]
+
+        with open(outfile, "w") as outfile:
+            # add our columns/header section
+            outfile.write(delimiter.join([""] + columns) + "\n")
+
+            # now start reading our chunked columns and chunked rows and write them
+            for lotsalines in zip(*open_tmpfiles):
+                outfile.write(_glue_together(lotsalines, delimiter))
+
+        # cleanup
+        [tmpfile.close() for tmpfile in open_tmpfiles]
+
 else:
 
     @singledispatch
     def quantile_normalize(
-        data: np.ndarray, axis: int = 1, target: Union[None, np.ndarray] = None
+        data: np.ndarray, axis: int = 1, target: Union[None, np.ndarray] = None,
+        ncpus: int = 1, **kwargs
     ) -> np.ndarray:
         """
         Quantile normalize your array.
@@ -97,6 +181,7 @@ else:
                   Axis=0 normalizes each row/feature giving them all identical
                   distributions.
             target: distribution to normalize onto
+            ncpus: number of cpus to use for normalization
 
         Returns: a quantile normalized copy of the input.
         """
@@ -111,6 +196,7 @@ def quantile_normalize_np(
     axis: int = 1,
     target: Union[None, np.ndarray] = None,
     ncpus: int = 1,
+    **kwargs
 ) -> np.ndarray:
     # check for supported dtypes
     if not np.issubdtype(_data.dtype, np.number):
@@ -149,22 +235,7 @@ def quantile_normalize_np(
     elif ncpus > 1:
         # multiproces sorting
         # first we make a shared array
-        data_shared = RawArray(
-            np.ctypeslib.as_ctypes_type(dtype), _data.shape[0] * _data.shape[1]
-        )
-        # and wrap it with a numpy array and fill it with our data
-        data = np.frombuffer(data_shared, dtype=dtype).reshape(_data.shape)
-        np.copyto(data, _data.astype(dtype))
-
-        # now multiprocess sort
-        with Pool(
-            processes=ncpus,
-            initializer=worker_init,
-            initargs=(data_shared, dtype, data.shape),
-        ) as pool:
-            sorted_idx = np.array(
-                pool.map(worker_sort, range(data.shape[1])), dtype=np.int64
-            ).T
+        data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
     else:
         raise ValueError("The number of cpus needs to be a positive integer.")
 
