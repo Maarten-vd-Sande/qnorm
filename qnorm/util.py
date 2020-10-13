@@ -13,7 +13,7 @@ def get_delim(table):
         )._engine.data.dialect.delimiter
     return delimiter
 
-
+@profile
 def read_n_lines(file, n):
     """
     Iterate over lines of a file, multiple lines at the same time. This can be
@@ -35,7 +35,7 @@ def read_n_lines(file, n):
     # print(Path(file).stat().st_size)
     df = pd.read_hdf(file, iterator=True, chunksize=n)
     for lines in df:
-        yield lines.values
+        yield lines.values.astype(np.unicode_)
     df.close()
     # with open(file) as f:
     #     lines = []
@@ -46,7 +46,7 @@ def read_n_lines(file, n):
     #             lines = []
     # yield lines
 
-
+@profile
 def _glue_together(lotsalines, delimiter):
     """
     private function of qnorm that that can combine multiple chunks of rows and

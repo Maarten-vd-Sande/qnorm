@@ -91,6 +91,7 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
+    @profile
     def quantile_normalize_file(
         infile: str,
         outfile: str,
@@ -193,7 +194,7 @@ if pandas_import:
             qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
 
             # store it in tempfile
-            tmpfiles.append(tempfile.NamedTemporaryFile(prefix= "rest", suffix=".h5"))
+            tmpfiles.append(tempfile.NamedTemporaryFile(prefix="rest", suffix=".h5"))
             qnormed.to_hdf(
                 tmpfiles[-1].name, key="qnorm", format="table"
             )
