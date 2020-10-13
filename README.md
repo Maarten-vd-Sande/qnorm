@@ -89,7 +89,7 @@ Maximum resident set size (kbytes): 2768884
 
 It takes only 7.5 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
 
-The test array we made consists of `100 * 1_000_000 = 100_000_000` single point precision integers, so four bytes each (400_000_000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases. If memory usage is a problem take a look at the [low-memory implementation](#memory-efficient-quantile-norm).
+The test array we made consists of `100 * 1.000.000 = 100.000.000` single point precision integers, so four bytes each (400.000.000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases. If memory usage is a problem take a look at the [low-memory implementation](#memory-efficient-quantile-norm).
 
 ### Scaling of ncpus
 
@@ -109,7 +109,7 @@ qnorm.quantile_normalize_file("intable.csv", "outtable.csv", rowchunksize=1000, 
 
 The `rowchunksize` and `colchunksize` respectively influence in how large of chunks the output is written to disk and how many columns are being sorted and quantile normalized at the same time. The larger the better, however the defaults should be sufficiently fast.
 
-And the proof is in the pudding, so again a little benchmark. We make tables which again contains samples which consist of 1 million integers integer values between 0-100. These tables consist of `[10, 20, 40, 80, 160, 320, 640, 1280, 2560]` columns and in our benchmark we read those files from disk, quantile normalize the tables, and write them to disk both with the standard and memory efficient method (default col and row chunksizes):
+And the proof is in the pudding, so again a little benchmark. We make tables which again contains samples which consist of 1 million integers integer values between 0-100. These tables consist of `[10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120]` columns and in our benchmark we read those files from disk, quantile normalize the tables, and write them to disk both with the standard and memory efficient method (default col and row chunksizes):
 
 ![mini benchmark file](imgs/benchmark_files.png)
 

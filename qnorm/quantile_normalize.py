@@ -191,7 +191,7 @@ if pandas_import:
             # store it in tempfile
             tmpfiles.append(tempfile.NamedTemporaryFile())
             qnormed.to_csv(
-                tmpfiles[-1].name, header=False, index=False, sep=delimiter
+                tmpfiles[-1].name, header=False, index=False, sep=delimiter, chunksize=rowchunksize
             )
 
         # for each tempfile open an iterator that reads multiple lines at once

@@ -27,7 +27,7 @@ jobs:
 
     - name: Run tests
       run: |
-        python -m unittest
+        python -W ignore:ResourceWarning -m unittest
 
     - name: Code formatting (black)
       if: always()
