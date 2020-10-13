@@ -1,7 +1,19 @@
 import re
+import warnings
 from multiprocessing import Pool, RawArray
 
 import numpy as np
+
+
+def get_delim(table):
+    import pandas as pd
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        delimiter = pd.read_csv(
+            table, sep=None, iterator=True, nrows=1000, comment="#", index_col=0
+        )._engine.data.dialect.delimiter
+    return delimiter
 
 
 def read_n_lines(file, n):
@@ -35,7 +47,9 @@ def _glue_together(lotsalines, delimiter):
     """
     glued = []
     for line in zip(*lotsalines):
-        glued.append(delimiter.join(re.split(rf"[\n{delimiter}]+", delimiter.join(line))))
+        glued.append(
+            delimiter.join(re.split(rf"[\n{delimiter}]+", delimiter.join(line)))
+        )
     return "\n".join(glued) + "\n"
 
 
@@ -54,9 +68,9 @@ def _parallel_argsort(_array, ncpus, dtype):
 
     # now multiprocess sort
     with Pool(
-            processes=ncpus,
-            initializer=_worker_init,
-            initargs=(data_shared, dtype, data.shape),
+        processes=ncpus,
+        initializer=_worker_init,
+        initargs=(data_shared, dtype, data.shape),
     ) as pool:
         sorted_idx = np.array(
             pool.map(_worker_sort, range(data.shape[1])), dtype=np.int64

@@ -32,7 +32,7 @@ D  4.666667  3.000000  5.666667
 
 Qnorm accepts an (optional) axis argument, which is used to normalize along. If axis=1 (default), standardize each sample (column), if axis=0, standardize each feature (row).
 
-**NOTE**: The function quantile_normalize also accepts numpy arrays. 
+**note**: The function quantile_normalize also accepts numpy arrays. 
 
 ### Multicore support
 
@@ -89,13 +89,35 @@ Maximum resident set size (kbytes): 2768884
 
 It takes only 7.5 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
 
-The test array we made consists of `100 * 1_000_000 = 100_000_000` single point precision integers, so four bytes each (400_000_000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases.
+The test array we made consists of `100 * 1_000_000 = 100_000_000` single point precision integers, so four bytes each (400_000_000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases. If memory usage is a problem take a look at the [low-memory implementation](#memory-efficient-quantile-norm).
 
 ### Scaling of ncpus
 
 Using more than four cpus generally does not lead to a much bigger speedup. 
 
 ![mini benchmark](imgs/benchmark.png)
+
+### memory efficient quantile norm
+
+In case you want to quantile normalize excessively large tables, there is a "memory-efficient" implementation. This implementation gets its memory efficiency by calculating the mean "online", which means we calculate it on fractions of the total table and then update the value. The other change is that intermediate results are written to disk. Since disk space is slower than memory, this automatically means that this implementation is slower than the standard implementation. However the memory efficient method can scale to virtually infinitely large tables (or until you run out of disk space).
+
+```python
+import qnorm
+
+qnorm.quantile_normalize_file("intable.csv", "outtable.csv", rowchunksize=1000, colchunksize=64, ncpus=4)
+```
+
+The `rowchunksize` and `colchunksize` respectively influence in how large of chunks the output is written to disk and how many columns are being sorted and quantile normalized at the same time. The larger the better, however the defaults should be sufficiently fast.
+
+And the proof is in the pudding, so again a little benchmark. We make tables which again contains samples which consist of 1 million integers integer values between 0-100. These tables consist of `[10, 20, 40, 80, 160, 320, 640, 1280, 2560]` columns and in our benchmark we read those files from disk, quantile normalize the tables, and write them to disk both with the standard and memory efficient method (default col and row chunksizes):
+
+![mini benchmark file](imgs/benchmark_files.png)
+
+At the end the timings become a bit messy, but I think that might be related to the fact that I ran this benchmark on a shared server and other people were running their analyses as well. As you see the file based quantile normalization method is a bit slower (1.5 - 2 times), but has a constant memory footprint.
+
+**note:** Both methods should produce identical results, and neither is more correct than the other.
+
+**note:** The memory-efficient implementation requires pandas to be installed (`conda/pip install pandas`)/
 
 ## Command Line Interface (CLI) example
 
@@ -135,7 +157,9 @@ C       3.0     5.166666666666666       4.666666666666666
 D       4.666666666666666       3.0     5.666666666666666
 ```
 
-**NOTE:** the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process. Lines starting with a hashtag "#" are treated as comments and ignored.
+**note:** the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process. Lines starting with a hashtag "#" are treated as comments and ignored.
+
+**note:** The CLI requires pandas to be installed (`conda/pip install pandas`)
 
 ## Installation
 

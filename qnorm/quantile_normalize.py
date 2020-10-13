@@ -7,7 +7,7 @@ from typing import overload, Union
 import numba
 import numpy as np
 
-from .util import read_n_lines, _glue_together, _parallel_argsort
+from .util import read_n_lines, get_delim, _glue_together, _parallel_argsort
 
 try:
     import pandas as pd
@@ -91,65 +91,115 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
-
     def quantile_normalize_file(
         infile: str,
         outfile: str,
         rowchunksize: int = 1_000,
         colchunksize: int = 64,
-        ncpus: int = 1
+        ncpus: int = 1,
     ) -> pd.DataFrame:
         """
+        Memory-efficient quantile normalization implementation by splitting
+        the task into sequential subtasks, and writing the intermediate results
+        to disk instead of keeping them in memory. This makes the memory
+        footprint independent of the input table, however also slower..
 
         Args:
-            infile:
-            outfile:
-            rowchunksize:
-            colchunksize:
-            ncpus:
-        Returns:
-
+            infile: path to input table. The delimiter is auto detected.
+            outfile: path to the output table. Has the same layout and delimiter
+                as the input file
+            rowchunksize: how many rows to read/write at the same time when
+                combining intermediate results. More is faster, but also uses
+                more memory.
+            colchunksize: how many columns to use at the same time when
+                calculating the mean and normalizing. More is faster, but also
+                uses more memory.
+            ncpus: The number of cpus to use. Scales diminishingly, and more
+                than four is generally not useful.
         """
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            delimiter = pd.read_csv(
-                infile, sep=None, iterator=True, nrows=1000, comment="#",
-                index_col=0
-            )._engine.data.dialect.delimiter
-            columns = [str(col) for col in pd.read_csv(infile, sep=delimiter, nrows=10, comment="#", index_col=0).columns]
-            nr_cols = len(columns)
+        # get the (inferred) delimiter
+        delimiter = get_delim(infile)
 
-        index = [str(row) for row in pd.read_csv(infile, sep=delimiter, comment="#", index_col=0, usecols=[0]).index]
+        # now scan the table for which columns and indices it contains
+        columns = [
+            str(col)
+            for col in pd.read_csv(
+                infile, sep=delimiter, nrows=10, comment="#", index_col=0
+            ).columns
+        ]
+        index = [
+            str(row)
+            for row in pd.read_csv(
+                infile, sep=delimiter, comment="#", index_col=0, usecols=[0]
+            ).index
+        ]
+        nr_cols = len(columns)
         nr_rows = len(index)
 
+        # calculate the target (rank means)
         target = np.zeros(nr_rows)
 
-        # get the target
+        # loop over our column chunks and keep updating our target
         for i in range(math.ceil(nr_cols / colchunksize)):
-            col_start, col_end = i * colchunksize, np.clip((i + 1) * colchunksize, 0, nr_cols)
-            df = pd.read_csv(infile, sep=delimiter, comment="#", index_col=0, usecols=[0, *list(range(col_start + 1 , col_end + 1))])
-            df = df.astype('float32')
-            values, sorted_idx = _parallel_argsort(df.values, ncpus, df.values.dtype)
-            sorted_val = np.take_along_axis(values, sorted_idx, axis=0)
-            subtarget = np.mean(sorted_val, axis=1)
-            target += (subtarget - target) * ((col_end - col_start) / (col_end))
+            col_start, col_end = i * colchunksize, np.clip(
+                (i + 1) * colchunksize, 0, nr_cols
+            )
+            # read relevant columns
+            df = pd.read_csv(
+                infile,
+                sep=delimiter,
+                comment="#",
+                index_col=0,
+                usecols=[0, *list(range(col_start + 1, col_end + 1))],
+            ).astype("float32")
 
-        tmpfiles = []
-        tmpfile = tempfile.NamedTemporaryFile()
-        tmpfiles.append(tmpfile)
-        with open(tmpfile.name, "w") as f:
+            # get the rank means
+            rankmeans = np.mean(
+                np.take_along_axis(
+                    *_parallel_argsort(df.values, ncpus, df.values.dtype),
+                    axis=0,
+                ),
+                axis=1,
+            )
+
+            # update the target
+            target += (rankmeans - target) * ((col_end - col_start) / (col_end))
+
+        # make a collection of temporary files where we write our columns to
+        tmpfiles = [tempfile.NamedTemporaryFile()]
+        with open(tmpfiles[0].name, "w") as f:
+            # the index is the first column
             f.write("\n".join(index))
+
+        # now that we have our target we can start normalizing in chunks
         for i in range(math.ceil(nr_cols / colchunksize)):
-            tmpfile = tempfile.NamedTemporaryFile()
-            tmpfiles.append(tmpfile)
-            col_start, col_end = i * colchunksize, np.clip((i + 1) * colchunksize, 0, nr_cols)
-            df = pd.read_csv(infile, sep=delimiter, comment="#", index_col=0, usecols=[0, *list(range(col_start + 1 , col_end + 1))])
-            df = df.astype('float32')
+            col_start, col_end = i * colchunksize, np.clip(
+                (i + 1) * colchunksize, 0, nr_cols
+            )
+            # read the relevant columns in
+            df = pd.read_csv(
+                infile,
+                sep=delimiter,
+                comment="#",
+                index_col=0,
+                usecols=[0, *list(range(col_start + 1, col_end + 1))],
+            ).astype("float32")
+
+            # quantile normalize
             qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
-            qnormed.to_csv(tmpfile.name, header=False, index=False, sep=delimiter)
 
-        open_tmpfiles = [read_n_lines(tmpfile.name, rowchunksize) for tmpfile in tmpfiles]
+            # store it in tempfile
+            tmpfiles.append(tempfile.NamedTemporaryFile())
+            qnormed.to_csv(
+                tmpfiles[-1].name, header=False, index=False, sep=delimiter
+            )
 
+        # for each tempfile open an iterator that reads multiple lines at once
+        open_tmpfiles = [
+            read_n_lines(tmpfile.name, rowchunksize) for tmpfile in tmpfiles
+        ]
+
+        # now collapse everything together
         with open(outfile, "w") as outfile:
             # add our columns/header section
             outfile.write(delimiter.join([""] + columns) + "\n")
@@ -161,12 +211,16 @@ if pandas_import:
         # cleanup
         [tmpfile.close() for tmpfile in open_tmpfiles]
 
+
 else:
 
     @singledispatch
     def quantile_normalize(
-        data: np.ndarray, axis: int = 1, target: Union[None, np.ndarray] = None,
-        ncpus: int = 1, **kwargs
+        data: np.ndarray,
+        axis: int = 1,
+        target: Union[None, np.ndarray] = None,
+        ncpus: int = 1,
+        **kwargs,
     ) -> np.ndarray:
         """
         Quantile normalize your array.
@@ -196,7 +250,7 @@ def quantile_normalize_np(
     axis: int = 1,
     target: Union[None, np.ndarray] = None,
     ncpus: int = 1,
-    **kwargs
+    **kwargs,
 ) -> np.ndarray:
     # check for supported dtypes
     if not np.issubdtype(_data.dtype, np.number):
