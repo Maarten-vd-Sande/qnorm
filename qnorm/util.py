@@ -3,11 +3,9 @@ import warnings
 from multiprocessing import Pool, RawArray
 
 import numpy as np
-
+import pandas as pd
 
 def get_delim(table):
-    import pandas as pd
-
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         delimiter = pd.read_csv(
@@ -30,14 +28,23 @@ def read_n_lines(file, n):
     Returns:
         a list with a string per line
     """
-    with open(file) as f:
-        lines = []
-        for line in f:
-            lines.append(line.strip())
-            if len(lines) == n:
-                yield lines
-                lines = []
-    yield lines
+    # print("start")
+    # import os
+    # from pathlib import Path
+    # print(os.path.exists(file))
+    # print(Path(file).stat().st_size)
+    df = pd.read_hdf(file, iterator=True, chunksize=n)
+    for lines in df:
+        yield lines.values
+    df.close()
+    # with open(file) as f:
+    #     lines = []
+    #     for line in f:
+    #         lines.append(line.strip())
+    #         if len(lines) == n:
+    #             yield lines
+    #             lines = []
+    # yield lines
 
 
 def _glue_together(lotsalines, delimiter):
@@ -47,9 +54,7 @@ def _glue_together(lotsalines, delimiter):
     """
     glued = []
     for line in zip(*lotsalines):
-        glued.append(
-            delimiter.join(re.split(rf"[\n{delimiter}]+", delimiter.join(line)))
-        )
+        glued.append(delimiter.join([str(val) for val in np.concatenate(line)]))
     return "\n".join(glued) + "\n"
 
 

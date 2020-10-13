@@ -166,10 +166,14 @@ if pandas_import:
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
         # make a collection of temporary files where we write our columns to
-        tmpfiles = [tempfile.NamedTemporaryFile()]
-        with open(tmpfiles[0].name, "w") as f:
-            # the index is the first column
-            f.write("\n".join(index))
+        tmpfiles = [tempfile.NamedTemporaryFile(prefix="first", suffix=".h5")]
+        pd.DataFrame(index).to_hdf(
+            tmpfiles[-1].name, key="qnorm", format="table"
+        )
+        # with open(tmpfiles[0].name, "w") as f:
+        #     # the index is the first column
+        #     f.write("\n".join(index))
+        # tmpfiles = []
 
         # now that we have our target we can start normalizing in chunks
         for i in range(math.ceil(nr_cols / colchunksize)):
@@ -189,9 +193,9 @@ if pandas_import:
             qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
 
             # store it in tempfile
-            tmpfiles.append(tempfile.NamedTemporaryFile())
-            qnormed.to_csv(
-                tmpfiles[-1].name, header=False, index=False, sep=delimiter, chunksize=rowchunksize
+            tmpfiles.append(tempfile.NamedTemporaryFile(prefix= "rest", suffix=".h5"))
+            qnormed.to_hdf(
+                tmpfiles[-1].name, key="qnorm", format="table"
             )
 
         # for each tempfile open an iterator that reads multiple lines at once
