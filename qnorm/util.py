@@ -25,6 +25,7 @@ def parse_csv(infile):
     ]
     return columns, index, delimiter
 
+
 def parse_hdf(infile):
     """
     parse a hdf file and get the columns and index from it.
@@ -52,7 +53,7 @@ def glue_csv(outfile, header, colfiles, delimiter):
         for lotsalines in zip(*open_colfiles):
             outfile.write(_glue_csv(lotsalines, delimiter))
 
-# @profile
+
 def glue_hdf(outfile, header, colfiles):
     """
     glue multiple hdf into a single hdf
@@ -78,7 +79,7 @@ def get_delim(table):
         )._engine.data.dialect.delimiter
     return delimiter
 
-# @profile
+
 def read_lines(files):
     """
     Iterate over lines of a file, multiple lines at the same time. This can be
@@ -96,7 +97,7 @@ def read_lines(files):
     for file in files:
         yield pd.read_pickle(file.name)
 
-# @profile
+
 def _glue_csv(lotsalines, delimiter):
     """
     private function of qnorm that that can combine multiple chunks of rows and

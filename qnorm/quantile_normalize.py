@@ -1,3 +1,4 @@
+import os
 import math
 import tempfile
 from functools import singledispatch
@@ -90,7 +91,7 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
-    @profile
+
     def quantile_normalize_file(
         infile: str,
         outfile: str,
@@ -120,6 +121,9 @@ if pandas_import:
             ncpus: The number of cpus to use. Scales diminishingly, and more
                 than four is generally not useful.
         """
+        if os.path.exists(outfile):
+            os.remove(outfile)
+
         if infile.endswith((".hdf", ".h5")):
             dataformat = "hdf"
             columns, index = parse_hdf(infile)

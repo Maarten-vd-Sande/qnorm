@@ -19,6 +19,7 @@ df1 = pd.DataFrame(
     }
 )
 df1.to_csv("test.csv")
+df1.to_hdf("test.hdf", key="qnorm", format="table")
 
 
 class TestQnorm(unittest.TestCase):
@@ -195,7 +196,7 @@ class TestQnorm(unittest.TestCase):
             qnorm.quantile_normalize(df.T, axis=0),
         )
 
-    def test_012_from_file(self):
+    def test_012_from_csv(self):
         """
         test the basic quantile_normalize_file functionality
         """
@@ -207,7 +208,7 @@ class TestQnorm(unittest.TestCase):
             qnorm.quantile_normalize(df1), df2.values, decimal=5
         )
 
-    def test_013_from_file_rowchunk(self):
+    def test_013_from_csv_rowchunk(self):
         """
         test the quantile_normalize_file with rowchunks functionality
         """
@@ -223,7 +224,7 @@ class TestQnorm(unittest.TestCase):
                 qnorm.quantile_normalize(df1), df2.values, decimal=5
             )
 
-    def test_014_from_file_colchunk(self):
+    def test_014_from_csv_colchunk(self):
         """
         test the quantile_normalize_file with colchunks functionality
         """
@@ -239,7 +240,7 @@ class TestQnorm(unittest.TestCase):
                 qnorm.quantile_normalize(df1), df2.values, decimal=5
             )
 
-    def test_015_from_file_colrowchunk(self):
+    def test_015_from_csv_colrowchunk(self):
         """
         test the quantile_normalize_file with both row and colchunks
         """
@@ -259,7 +260,7 @@ class TestQnorm(unittest.TestCase):
                     qnorm.quantile_normalize(df1), df2.values, decimal=5
                 )
 
-    def test_016_from_file_largefile(self):
+    def test_016_from_csv_largefile(self):
         """
         test whether or not quantile_normalize_file works with a larger random file
         """
@@ -277,7 +278,92 @@ class TestQnorm(unittest.TestCase):
         df2 = pd.read_csv("test_large_out.csv", index_col=0, header=0)
 
         np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df1), df2.values, decimal=4
+        )
+
+    def test_017_from_hdf(self):
+        """
+        test the basic quantile_normalize_file functionality
+        """
+        qnorm.quantile_normalize_file("test.hdf", "test_out.hdf")
+        df1 = pd.read_hdf("test.hdf", index_col=0, header=0)
+        df2 = pd.read_hdf("test_out.hdf", index_col=0, header=0)
+
+        np.testing.assert_almost_equal(
             qnorm.quantile_normalize(df1), df2.values, decimal=5
+        )
+
+    def test_018_from_hdf_rowchunk(self):
+        """
+        test the quantile_normalize_file with rowchunks functionality
+        """
+        df1 = pd.read_hdf("test.hdf", index_col=0, header=0)
+
+        for rowchunksize in range(1, 10):
+            qnorm.quantile_normalize_file(
+                "test.hdf", "test_out.hdf", rowchunksize=rowchunksize
+            )
+            df2 = pd.read_hdf("test_out.hdf", index_col=0, header=0)
+
+            np.testing.assert_almost_equal(
+                qnorm.quantile_normalize(df1), df2.values, decimal=5
+            )
+
+    def test_019_from_hdf_colchunk(self):
+        """
+        test the quantile_normalize_file with colchunks functionality
+        """
+        df1 = pd.read_hdf("test.hdf", index_col=0, header=0)
+
+        for colchunksize in range(1, 10):
+            qnorm.quantile_normalize_file(
+                "test.hdf", "test_out.hdf", colchunksize=colchunksize
+            )
+            df2 = pd.read_hdf("test_out.hdf", index_col=0, header=0)
+
+            np.testing.assert_almost_equal(
+                qnorm.quantile_normalize(df1), df2.values, decimal=5
+            )
+
+    def test_020_from_hdf_colrowchunk(self):
+        """
+        test the quantile_normalize_file with both row and colchunks
+        """
+        df1 = pd.read_hdf("test.hdf", index_col=0, header=0)
+
+        for colchunksize in range(1, 10):
+            for rowchunksize in range(1, 10):
+                qnorm.quantile_normalize_file(
+                    "test.hdf",
+                    "test_out.hdf",
+                    rowchunksize=rowchunksize,
+                    colchunksize=colchunksize,
+                )
+                df2 = pd.read_hdf("test_out.hdf", index_col=0, header=0)
+
+                np.testing.assert_almost_equal(
+                    qnorm.quantile_normalize(df1), df2.values, decimal=5
+                )
+
+    def test_021_from_hdf_largefile(self):
+        """
+        test whether or not quantile_normalize_file works with a larger random file
+        """
+        np.random.seed(42)
+        df1 = pd.DataFrame(index=range(5000), columns=range(100))
+        df1[:] = np.random.randint(0, 100, size=df1.shape)
+        df1.to_hdf("test_large.hdf", key="qnorm", format="table")
+
+        qnorm.quantile_normalize_file(
+            "test_large.hdf",
+            "test_large_out.hdf",
+            rowchunksize=11,
+            colchunksize=11,
+        )
+        df2 = pd.read_hdf("test_large_out.hdf", index_col=0, header=0)
+
+        np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df1), df2.values, decimal=4
         )
 
 
