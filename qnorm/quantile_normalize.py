@@ -6,7 +6,7 @@ from typing import overload, Union
 import numba
 import numpy as np
 
-from .util import read_n_lines, get_delim, _glue_together, _parallel_argsort
+from .util import glue_csv, glue_hdf, parse_csv, parse_hdf, _parallel_argsort
 
 try:
     import pandas as pd
@@ -94,10 +94,10 @@ if pandas_import:
     def quantile_normalize_file(
         infile: str,
         outfile: str,
-        rowchunksize: int = 1_000,
+        rowchunksize: int = 100_000,
         colchunksize: int = 64,
         ncpus: int = 1,
-    ) -> pd.DataFrame:
+    ) -> None:
         """
         Memory-efficient quantile normalization implementation by splitting
         the task into sequential subtasks, and writing the intermediate results
@@ -105,9 +105,12 @@ if pandas_import:
         footprint independent of the input table, however also slower..
 
         Args:
-            infile: path to input table. The delimiter is auto detected.
+            infile: path to input table. The table can be either a csv-like file
+                of which the delimiter is auto detected. Or the infile can be a
+                hdf file, which requires to be stored with format=table.
             outfile: path to the output table. Has the same layout and delimiter
-                as the input file
+                as the input file. If the input is csv-like, the output is csv-
+                like. If the input is hdf, then the output is hdf.
             rowchunksize: how many rows to read/write at the same time when
                 combining intermediate results. More is faster, but also uses
                 more memory.
@@ -117,25 +120,20 @@ if pandas_import:
             ncpus: The number of cpus to use. Scales diminishingly, and more
                 than four is generally not useful.
         """
-        # get the (inferred) delimiter
-        delimiter = get_delim(infile)
+        if infile.endswith((".hdf", ".h5")):
+            dataformat = "hdf"
+            columns, index = parse_hdf(infile)
+        elif infile.endswith((".csv", ".tsv", ".txt")):
+            dataformat = "csv"
+            columns, index, delimiter = parse_csv(infile)
+        else:
+            raise NotImplementedError("")
 
         # now scan the table for which columns and indices it contains
-        columns = [
-            str(col)
-            for col in pd.read_csv(
-                infile, sep=delimiter, nrows=10, comment="#", index_col=0
-            ).columns
-        ]
-        index = [
-            str(row)
-            for row in pd.read_csv(
-                infile, sep=delimiter, comment="#", index_col=0, usecols=[0]
-            ).index
-        ]
         nr_cols = len(columns)
         nr_rows = len(index)
 
+        # store intermediate tables
         tmpfiles = []
 
         # calculate the target (rank means)
@@ -147,13 +145,19 @@ if pandas_import:
                 (i + 1) * colchunksize, 0, nr_cols
             )
             # read relevant columns
-            df = pd.read_csv(
-                infile,
-                sep=delimiter,
-                comment="#",
-                index_col=0,
-                usecols=[0, *list(range(col_start + 1, col_end + 1))],
-            ).astype("float32")
+            if dataformat == "hdf":
+                df = pd.read_hdf(
+                    infile,
+                    columns=[columns[i] for i in range(col_start, col_end)]
+                ).astype("float32")
+            elif dataformat == "csv":
+                df = pd.read_csv(
+                    infile,
+                    sep=delimiter,
+                    comment="#",
+                    index_col=0,
+                    usecols=[0, *list(range(col_start + 1, col_end + 1))],
+                ).astype("float32")
 
             # get the rank means
             rankmeans = np.mean(
@@ -167,7 +171,7 @@ if pandas_import:
             # update the target
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
-            tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".h5"))
+            tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p"))
             df.to_pickle(
                 tmpfiles[-1].name, compression=None
             )
@@ -175,13 +179,15 @@ if pandas_import:
         # now that we have our target we can start normalizing in chunks
         qnorm_tmp = []
 
+        # store intermediate results
+        # and start with our index and store it
         index_tmpfiles = []
         for chunk in np.array_split(index, math.ceil(len(index) / rowchunksize)):
-            tmpfile = tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
-            index_tmpfiles.append(tmpfile)
-            pd.DataFrame(chunk).to_pickle(tmpfile.name, compression=None)
+            index_tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p"))
+            pd.DataFrame(chunk).to_pickle(index_tmpfiles[-1].name, compression=None)
         qnorm_tmp.append(index_tmpfiles)
 
+        # now for each column chunk quantile normalize it onto our distribution
         for i in range(math.ceil(nr_cols / colchunksize)):
             # read the relevant columns in
             df = pd.read_pickle(tmpfiles[i].name)
@@ -197,23 +203,15 @@ if pandas_import:
                 chunk.to_pickle(tmpfile.name, compression=None)
             qnorm_tmp.append(col_tmpfiles)
 
-        # for each tempfile open an iterator that reads multiple lines at once
-        open_tmpfiles = [
-            read_n_lines(tmpfiles, rowchunksize) for tmpfiles in qnorm_tmp
-        ]
-
-        # now collapse everything together
-        with open(outfile, "w") as outfile:
-            # add our columns/header section
-            outfile.write(delimiter.join([""] + columns) + "\n")
-
-            # now start reading our chunked columns and chunked rows and write them
-            for lotsalines in zip(*open_tmpfiles):
-                outfile.write(_glue_together(lotsalines, delimiter))
+        # glue the separate files together and save them
+        if dataformat == "hdf":
+            glue_hdf(outfile, columns, qnorm_tmp)
+        elif dataformat == "csv":
+            glue_csv(outfile, columns, qnorm_tmp, delimiter)
 
         # cleanup
-        [tmpfile.close() for tmpfile in open_tmpfiles]
-
+        [tmpfile.close() for tmpfile in tmpfiles]
+        [tmpfile.close() for tmpfiles in qnorm_tmp for tmpfile in tmpfiles]
 
 else:
 
