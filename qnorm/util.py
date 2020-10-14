@@ -14,8 +14,8 @@ def get_delim(table):
         )._engine.data.dialect.delimiter
     return delimiter
 
-@profile
-def read_n_lines(file, n):
+# @profile
+def read_n_lines(files, n):
     """
     Iterate over lines of a file, multiple lines at the same time. This can be
     useful when iterating over multiple files at the same time on a slow
@@ -29,23 +29,8 @@ def read_n_lines(file, n):
     Returns:
         a list with a string per line
     """
-    # print("start")
-    # import os
-    # from pathlib import Path
-    # print(os.path.exists(file))
-    # print(Path(file).stat().st_size)
-    df = pd.read_hdf(file, iterator=True, chunksize=n)
-    for lines in df:
-        yield lines.values
-    df.close()
-    # with open(file) as f:
-    #     lines = []
-    #     for line in f:
-    #         lines.append(line.strip())
-    #         if len(lines) == n:
-    #             yield lines
-    #             lines = []
-    # yield lines
+    for file in files:
+        yield pd.read_pickle(file.name)
 
 @profile
 def _glue_together(lotsalines, delimiter):
@@ -53,21 +38,11 @@ def _glue_together(lotsalines, delimiter):
     private function of qnorm that that can combine multiple chunks of rows and
     columns into a single table.
     """
-    s = io.BytesIO()
-    # df = pd.concat(lotsalines, axis=1)
     stack = np.hstack(lotsalines)
-    # np.savetxt(s, stack, delimiter=delimiter)
     fmt = delimiter.join(["%s"] + ['%g']*(stack.shape[1] - 1))
     fmt = '\n'.join([fmt]*stack.shape[0])
     data = fmt % tuple(stack.ravel())
-
-    # print(s.getvalue().decode())
-    # for line in zip(*lotsalines):
-    #     glued.append(delimiter.join([str(val) for val in np.concatenate(line)]))
-    return data
-    return s.getvalue().decode()
-    return df.to_csv(header=False)
-
+    return data + "\n"
 
 def _parallel_argsort(_array, ncpus, dtype):
     """

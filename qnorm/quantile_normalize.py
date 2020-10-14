@@ -1,4 +1,3 @@
-import warnings
 import math
 import tempfile
 from functools import singledispatch
@@ -137,12 +136,7 @@ if pandas_import:
         nr_cols = len(columns)
         nr_rows = len(index)
 
-        # make a collection of temporary files where we write our columns to
-        tmpfiles = [tempfile.NamedTemporaryFile(prefix="first", suffix=".h5")]
-        pd.DataFrame(index).to_hdf(
-            tmpfiles[-1].name, key="qnorm", format="table"
-        )
-        # tmpfiles = []
+        tmpfiles = []
 
         # calculate the target (rank means)
         target = np.zeros(nr_rows)
@@ -174,43 +168,38 @@ if pandas_import:
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
             tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".h5"))
-            df.to_hdf(
-                tmpfiles[-1].name, key="qnorm", format="table", mode="w"
+            df.to_pickle(
+                tmpfiles[-1].name, compression=None
             )
-
-
-        # with open(tmpfiles[0].name, "w") as f:
-        #     # the index is the first column
-        #     f.write("\n".join(index))
-        # tmpfiles = []
 
         # now that we have our target we can start normalizing in chunks
+        qnorm_tmp = []
+
+        index_tmpfiles = []
+        for chunk in np.array_split(index, math.ceil(len(index) / rowchunksize)):
+            tmpfile = tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
+            index_tmpfiles.append(tmpfile)
+            pd.DataFrame(chunk).to_pickle(tmpfile.name, compression=None)
+        qnorm_tmp.append(index_tmpfiles)
+
         for i in range(math.ceil(nr_cols / colchunksize)):
-            col_start, col_end = i * colchunksize, np.clip(
-                (i + 1) * colchunksize, 0, nr_cols
-            )
             # read the relevant columns in
-            df = pd.read_hdf(tmpfiles[i + 1].name)
-            # df = pd.read_csv(
-            #     infile,
-            #     sep=delimiter,
-            #     comment="#",
-            #     index_col=0,
-            #     usecols=[0, *list(range(col_start + 1, col_end + 1))],
-            #     dtype="float32"
-            # )
+            df = pd.read_pickle(tmpfiles[i].name)
 
             # quantile normalize
             qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
 
             # store it in tempfile
-            qnormed.to_hdf(
-                tmpfiles[i + 1].name, key="qnorm", format="table", mode="w"
-            )
+            col_tmpfiles = []
+            for j, chunk in enumerate(np.array_split(qnormed, math.ceil(qnormed.shape[0] / rowchunksize))):
+                tmpfile = tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
+                col_tmpfiles.append(tmpfile)
+                chunk.to_pickle(tmpfile.name, compression=None)
+            qnorm_tmp.append(col_tmpfiles)
 
         # for each tempfile open an iterator that reads multiple lines at once
         open_tmpfiles = [
-            read_n_lines(tmpfile.name, rowchunksize) for tmpfile in tmpfiles
+            read_n_lines(tmpfiles, rowchunksize) for tmpfiles in qnorm_tmp
         ]
 
         # now collapse everything together
