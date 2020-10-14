@@ -137,6 +137,13 @@ if pandas_import:
         nr_cols = len(columns)
         nr_rows = len(index)
 
+        # make a collection of temporary files where we write our columns to
+        tmpfiles = [tempfile.NamedTemporaryFile(prefix="first", suffix=".h5")]
+        pd.DataFrame(index).to_hdf(
+            tmpfiles[-1].name, key="qnorm", format="table"
+        )
+        # tmpfiles = []
+
         # calculate the target (rank means)
         target = np.zeros(nr_rows)
 
@@ -166,11 +173,12 @@ if pandas_import:
             # update the target
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
-        # make a collection of temporary files where we write our columns to
-        tmpfiles = [tempfile.NamedTemporaryFile(prefix="first", suffix=".h5")]
-        pd.DataFrame(index).to_hdf(
-            tmpfiles[-1].name, key="qnorm", format="table"
-        )
+            tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".h5"))
+            df.to_hdf(
+                tmpfiles[-1].name, key="qnorm", format="table", mode="w"
+            )
+
+
         # with open(tmpfiles[0].name, "w") as f:
         #     # the index is the first column
         #     f.write("\n".join(index))
@@ -182,21 +190,22 @@ if pandas_import:
                 (i + 1) * colchunksize, 0, nr_cols
             )
             # read the relevant columns in
-            df = pd.read_csv(
-                infile,
-                sep=delimiter,
-                comment="#",
-                index_col=0,
-                usecols=[0, *list(range(col_start + 1, col_end + 1))],
-            ).astype("float32")
+            df = pd.read_hdf(tmpfiles[i + 1].name)
+            # df = pd.read_csv(
+            #     infile,
+            #     sep=delimiter,
+            #     comment="#",
+            #     index_col=0,
+            #     usecols=[0, *list(range(col_start + 1, col_end + 1))],
+            #     dtype="float32"
+            # )
 
             # quantile normalize
             qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
 
             # store it in tempfile
-            tmpfiles.append(tempfile.NamedTemporaryFile(prefix="rest", suffix=".h5"))
             qnormed.to_hdf(
-                tmpfiles[-1].name, key="qnorm", format="table"
+                tmpfiles[i + 1].name, key="qnorm", format="table", mode="w"
             )
 
         # for each tempfile open an iterator that reads multiple lines at once
