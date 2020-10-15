@@ -91,7 +91,6 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
-
     def quantile_normalize_file(
         infile: str,
         outfile: str,
@@ -152,7 +151,7 @@ if pandas_import:
             if dataformat == "hdf":
                 df = pd.read_hdf(
                     infile,
-                    columns=[columns[i] for i in range(col_start, col_end)]
+                    columns=[columns[i] for i in range(col_start, col_end)],
                 ).astype("float32")
             elif dataformat == "csv":
                 df = pd.read_csv(
@@ -175,10 +174,10 @@ if pandas_import:
             # update the target
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
-            tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p"))
-            df.to_pickle(
-                tmpfiles[-1].name, compression=None
+            tmpfiles.append(
+                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
             )
+            df.to_pickle(tmpfiles[-1].name, compression=None)
 
         # now that we have our target we can start normalizing in chunks
         qnorm_tmp = []
@@ -186,9 +185,15 @@ if pandas_import:
         # store intermediate results
         # and start with our index and store it
         index_tmpfiles = []
-        for chunk in np.array_split(index, math.ceil(len(index) / rowchunksize)):
-            index_tmpfiles.append(tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p"))
-            pd.DataFrame(chunk).to_pickle(index_tmpfiles[-1].name, compression=None)
+        for chunk in np.array_split(
+            index, math.ceil(len(index) / rowchunksize)
+        ):
+            index_tmpfiles.append(
+                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
+            )
+            pd.DataFrame(chunk).to_pickle(
+                index_tmpfiles[-1].name, compression=None
+            )
         qnorm_tmp.append(index_tmpfiles)
 
         # now for each column chunk quantile normalize it onto our distribution
@@ -201,8 +206,14 @@ if pandas_import:
 
             # store it in tempfile
             col_tmpfiles = []
-            for j, chunk in enumerate(np.array_split(qnormed, math.ceil(qnormed.shape[0] / rowchunksize))):
-                tmpfile = tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
+            for j, chunk in enumerate(
+                np.array_split(
+                    qnormed, math.ceil(qnormed.shape[0] / rowchunksize)
+                )
+            ):
+                tmpfile = tempfile.NamedTemporaryFile(
+                    prefix="qnorm", suffix=".p"
+                )
                 col_tmpfiles.append(tmpfile)
                 chunk.to_pickle(tmpfile.name, compression=None)
             qnorm_tmp.append(col_tmpfiles)
@@ -216,6 +227,7 @@ if pandas_import:
         # cleanup
         [tmpfile.close() for tmpfile in tmpfiles]
         [tmpfile.close() for tmpfiles in qnorm_tmp for tmpfile in tmpfiles]
+
 
 else:
 

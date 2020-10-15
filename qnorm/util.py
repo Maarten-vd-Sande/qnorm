@@ -40,9 +40,7 @@ def glue_csv(outfile, header, colfiles, delimiter):
     """
     glue multiple csv into a single csv
     """
-    open_colfiles = [
-        read_lines(tmpfiles) for tmpfiles in colfiles
-    ]
+    open_colfiles = [read_lines(tmpfiles) for tmpfiles in colfiles]
 
     # now collapse everything together
     with open(outfile, "w") as outfile:
@@ -58,9 +56,7 @@ def glue_hdf(outfile, header, colfiles):
     """
     glue multiple hdf into a single hdf
     """
-    open_colfiles = [
-        read_lines(tmpfiles) for tmpfiles in colfiles
-    ]
+    open_colfiles = [read_lines(tmpfiles) for tmpfiles in colfiles]
 
     for lotsalines in zip(*open_colfiles):
         df = pd.DataFrame(np.hstack(lotsalines))
@@ -68,7 +64,14 @@ def glue_hdf(outfile, header, colfiles):
         df.index.name = None
         df.columns = header
         df = df.astype("float32")
-        df.to_hdf(outfile, key="qnorm", append=True, mode='a', format='table', min_itemsize=15)
+        df.to_hdf(
+            outfile,
+            key="qnorm",
+            append=True,
+            mode="a",
+            format="table",
+            min_itemsize=15,
+        )
 
 
 def get_delim(table):
@@ -104,8 +107,8 @@ def _glue_csv(lotsalines, delimiter):
     columns into a single table.
     """
     stack = np.hstack(lotsalines)
-    fmt = delimiter.join(["%s"] + ['%g']*(stack.shape[1] - 1))
-    fmt = '\n'.join([fmt]*stack.shape[0])
+    fmt = delimiter.join(["%s"] + ["%g"] * (stack.shape[1] - 1))
+    fmt = "\n".join([fmt] * stack.shape[0])
     data = fmt % tuple(stack.ravel())
     return data + "\n"
 
