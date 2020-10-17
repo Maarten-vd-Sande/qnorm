@@ -178,6 +178,7 @@ if pandas_import:
                 tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
             )
             df.to_pickle(tmpfiles[-1].name, compression=None)
+            del df
 
         # now that we have our target we can start normalizing in chunks
         qnorm_tmp = []
@@ -216,6 +217,7 @@ if pandas_import:
                 )
                 col_tmpfiles.append(tmpfile)
                 chunk.to_pickle(tmpfile.name, compression=None)
+                del chunk
             qnorm_tmp.append(col_tmpfiles)
 
         # glue the separate files together and save them
