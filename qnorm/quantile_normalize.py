@@ -175,7 +175,7 @@ if pandas_import:
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
             tmpfiles.append(
-                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
+                tempfile.NamedTemporaryFile(prefix=f"qnorm_{i}", suffix=".p")
             )
             df.to_pickle(tmpfiles[-1].name, compression=None)
             del df
@@ -213,7 +213,7 @@ if pandas_import:
                 )
             ):
                 tmpfile = tempfile.NamedTemporaryFile(
-                    prefix="qnorm", suffix=".p"
+                    prefix=f"qnorm_{i}_{j}", suffix=".p"
                 )
                 col_tmpfiles.append(tmpfile)
                 chunk.to_pickle(tmpfile.name, compression=None)
