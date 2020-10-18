@@ -167,6 +167,7 @@ if pandas_import:
 
             # get the rank means
             data, sorted_idx = _parallel_argsort(df.values, ncpus, df.values.dtype)
+            del df
             sorted_vals = np.take_along_axis(
                     data, sorted_idx,
                     axis=0,
@@ -216,6 +217,7 @@ if pandas_import:
 
             # quantile normalize
             qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
+            del data, sorted_idx, sorted_vals
 
             # store it in tempfile
             col_tmpfiles = []
