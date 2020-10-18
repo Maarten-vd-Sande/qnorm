@@ -91,6 +91,7 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
+    # @profile
     def quantile_normalize_file(
         infile: str,
         outfile: str,
@@ -137,7 +138,9 @@ if pandas_import:
         nr_rows = len(index)
 
         # store intermediate tables
-        tmpfiles = []
+        tmp_vals = []
+        tmp_sorted_vals = []
+        tmp_idxs = []
 
         # calculate the target (rank means)
         target = np.zeros(nr_rows)
@@ -163,22 +166,29 @@ if pandas_import:
                 ).astype("float32")
 
             # get the rank means
-            rankmeans = np.mean(
-                np.take_along_axis(
-                    *_parallel_argsort(df.values, ncpus, df.values.dtype),
+            data, sorted_idx = _parallel_argsort(df.values, ncpus, df.values.dtype)
+            sorted_vals = np.take_along_axis(
+                    data, sorted_idx,
                     axis=0,
-                ),
-                axis=1,
-            )
+                )
+            rankmeans = np.mean(sorted_vals, axis=1)
 
             # update the target
             target += (rankmeans - target) * ((col_end - col_start) / (col_end))
 
-            tmpfiles.append(
-                tempfile.NamedTemporaryFile(prefix=f"qnorm_{i}", suffix=".p")
+            # save all our intermediate stuff
+            tmp_vals.append(
+                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".npy")
             )
-            df.to_pickle(tmpfiles[-1].name, compression=None)
-            del df
+            tmp_sorted_vals.append(
+                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".npy")
+            )
+            tmp_idxs.append(
+                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".npy")
+            )
+            np.save(tmp_vals[-1].name, data)
+            np.save(tmp_sorted_vals[-1].name, sorted_vals)
+            np.save(tmp_idxs[-1].name, sorted_idx)
 
         # now that we have our target we can start normalizing in chunks
         qnorm_tmp = []
@@ -200,10 +210,12 @@ if pandas_import:
         # now for each column chunk quantile normalize it onto our distribution
         for i in range(math.ceil(nr_cols / colchunksize)):
             # read the relevant columns in
-            df = pd.read_pickle(tmpfiles[i].name)
+            data = np.load(tmp_vals[i].name, allow_pickle=True)
+            sorted_idx = np.load(tmp_idxs[i].name, allow_pickle=True)
+            sorted_vals = np.load(tmp_sorted_vals[i].name, allow_pickle=True)
 
             # quantile normalize
-            qnormed = quantile_normalize(df, target=target, ncpus=ncpus)
+            qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
 
             # store it in tempfile
             col_tmpfiles = []
@@ -213,11 +225,10 @@ if pandas_import:
                 )
             ):
                 tmpfile = tempfile.NamedTemporaryFile(
-                    prefix=f"qnorm_{i}_{j}", suffix=".p"
+                    prefix=f"qnorm_{i}_{j}", suffix=".npy"
                 )
                 col_tmpfiles.append(tmpfile)
-                chunk.to_pickle(tmpfile.name, compression=None)
-                del chunk
+                np.save(tmpfile.name, chunk)
             qnorm_tmp.append(col_tmpfiles)
 
         # glue the separate files together and save them
@@ -227,8 +238,8 @@ if pandas_import:
             glue_csv(outfile, columns, qnorm_tmp, delimiter)
 
         # cleanup
-        [tmpfile.close() for tmpfile in tmpfiles]
-        [tmpfile.close() for tmpfiles in qnorm_tmp for tmpfile in tmpfiles]
+        # [tmpfile.close() for tmpfile in tmpfiles]
+        # [tmpfile.close() for tmpfiles in qnorm_tmp for tmpfile in tmpfiles]
 
 
 else:
@@ -308,7 +319,7 @@ def quantile_normalize_np(
     elif ncpus > 1:
         # multiproces sorting
         # first we make a shared array
-        data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
+            data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
     else:
         raise ValueError("The number of cpus needs to be a positive integer.")
 
