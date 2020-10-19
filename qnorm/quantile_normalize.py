@@ -152,10 +152,11 @@ if pandas_import:
             )
             # read relevant columns
             if dataformat == "hdf":
-                df = pd.read_hdf(
-                    infile,
-                    columns=[columns[i] for i in range(col_start, col_end)],
-                ).astype("float32")
+                with pd.HDFStore(infile) as hdf:
+                    assert len(hdf.keys()) == 1
+                    key = hdf.keys()[0]
+                    cols = [hdf.select_column(key, columns[i]) for i in range(col_start, col_end)]
+                    df = pd.concat(cols, axis=1).astype("float32")
             elif dataformat == "csv":
                 df = pd.read_csv(
                     infile,
@@ -211,12 +212,12 @@ if pandas_import:
         # now for each column chunk quantile normalize it onto our distribution
         for i in range(math.ceil(nr_cols / colchunksize)):
             # read the relevant columns in
-            with np.load(tmp_vals[i].name, allow_pickle=True) as data, \
-                 np.load(tmp_idxs[i].name, allow_pickle=True) as sorted_idx, \
-                 np.load(tmp_sorted_vals[i].name, allow_pickle=True) as sorted_vals:
-                # quantile normalize
-                qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
+            data = np.load(tmp_vals[i].name, allow_pickle=True)
+            sorted_idx = np.load(tmp_idxs[i].name, allow_pickle=True)
+            sorted_vals = np.load(tmp_sorted_vals[i].name, allow_pickle=True)
 
+            # quantile normalize
+            qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
             del data, sorted_idx, sorted_vals
 
             # store it in tempfile

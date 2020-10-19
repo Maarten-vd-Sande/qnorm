@@ -104,8 +104,7 @@ def read_lines(files):
         a list with a string per line
     """
     for file in files:
-        with np.load(file.name, allow_pickle=True) as arr:
-            yield arr
+        yield np.load(file.name, allow_pickle=True)
 
 
 def _glue_csv(lotsalines, delimiter):
