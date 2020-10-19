@@ -211,12 +211,12 @@ if pandas_import:
         # now for each column chunk quantile normalize it onto our distribution
         for i in range(math.ceil(nr_cols / colchunksize)):
             # read the relevant columns in
-            data = np.load(tmp_vals[i].name, allow_pickle=True)
-            sorted_idx = np.load(tmp_idxs[i].name, allow_pickle=True)
-            sorted_vals = np.load(tmp_sorted_vals[i].name, allow_pickle=True)
+            with np.load(tmp_vals[i].name, allow_pickle=True) as data, \
+                 np.load(tmp_idxs[i].name, allow_pickle=True) as sorted_idx, \
+                 np.load(tmp_sorted_vals[i].name, allow_pickle=True) as sorted_vals:
+                # quantile normalize
+                qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
 
-            # quantile normalize
-            qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
             del data, sorted_idx, sorted_vals
 
             # store it in tempfile
@@ -231,6 +231,7 @@ if pandas_import:
                 )
                 col_tmpfiles.append(tmpfile)
                 np.save(tmpfile.name, chunk)
+            del qnormed, chunk
             qnorm_tmp.append(col_tmpfiles)
 
         # glue the separate files together and save them
