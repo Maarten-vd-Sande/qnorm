@@ -26,7 +26,7 @@ jobs:
 
     - name: Run tests
       env:
-        TMPDIR: /home/runner/work/
+        TMPDIR: ${HOME}
       run: |
         python -W ignore:ResourceWarning -m unittest
 
