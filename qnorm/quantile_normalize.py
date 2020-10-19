@@ -155,7 +155,10 @@ if pandas_import:
                 with pd.HDFStore(infile) as hdf:
                     assert len(hdf.keys()) == 1
                     key = hdf.keys()[0]
-                    cols = [hdf.select_column(key, columns[i]) for i in range(col_start, col_end)]
+                    cols = [
+                        hdf.select_column(key, columns[i])
+                        for i in range(col_start, col_end)
+                    ]
                     df = pd.concat(cols, axis=1).astype("float32")
             elif dataformat == "csv":
                 df = pd.read_csv(
@@ -167,12 +170,15 @@ if pandas_import:
                 ).astype("float32")
 
             # get the rank means
-            data, sorted_idx = _parallel_argsort(df.values, ncpus, df.values.dtype)
+            data, sorted_idx = _parallel_argsort(
+                df.values, ncpus, df.values.dtype
+            )
             del df
             sorted_vals = np.take_along_axis(
-                    data, sorted_idx,
-                    axis=0,
-                )
+                data,
+                sorted_idx,
+                axis=0,
+            )
             rankmeans = np.mean(sorted_vals, axis=1)
 
             # update the target
@@ -325,7 +331,7 @@ def quantile_normalize_np(
     elif ncpus > 1:
         # multiproces sorting
         # first we make a shared array
-            data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
+        data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
     else:
         raise ValueError("The number of cpus needs to be a positive integer.")
 

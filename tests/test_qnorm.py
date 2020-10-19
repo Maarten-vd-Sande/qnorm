@@ -262,7 +262,8 @@ class TestQnorm(unittest.TestCase):
 
     def test_016_from_csv_largefile(self):
         """
-        test whether or not quantile_normalize_file works with a larger random file
+        test whether or not quantile_normalize_file works with a larger random
+        file
         """
         np.random.seed(42)
         df1 = pd.DataFrame(index=range(5000), columns=range(100))
@@ -347,12 +348,18 @@ class TestQnorm(unittest.TestCase):
 
     def test_021_from_hdf_largefile(self):
         """
-        test whether or not quantile_normalize_file works with a larger random file
+        test whether or not quantile_normalize_file works with a larger random
+        file
         """
         np.random.seed(42)
-        df1 = pd.DataFrame(index=range(5000), columns=["sample"+str(col) for col in range(100)])
+        df1 = pd.DataFrame(
+            index=range(5000),
+            columns=["sample" + str(col) for col in range(100)],
+        )
         df1[:] = np.random.randint(0, 100, size=df1.shape)
-        df1.to_hdf("test_large.hdf", key="qnorm", format="table", data_columns=True)
+        df1.to_hdf(
+            "test_large.hdf", key="qnorm", format="table", data_columns=True
+        )
 
         qnorm.quantile_normalize_file(
             "test_large.hdf",

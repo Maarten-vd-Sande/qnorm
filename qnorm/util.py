@@ -32,13 +32,10 @@ def parse_hdf(infile):
     """
     # TODO: only table format
     columns = [col for col in pd.read_hdf(infile, start=0, stop=0).columns]
-    # try:
     with pd.HDFStore(infile) as hdf:
         assert len(hdf.keys()) == 1
         key = hdf.keys()[0]
-        index = hdf.select_column(key, 'index').values
-    # except:
-    #     index = [row for row in pd.read_hdf(infile, columns=[columns[0]]).index]
+        index = hdf.select_column(key, "index").values
     return columns, index
 
 
