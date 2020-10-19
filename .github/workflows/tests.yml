@@ -26,8 +26,8 @@ jobs:
 
     - name: Run tests
       env:
-        TMPDIR: ${HOME}
-        TMP: ${HOME}
+        TMPDIR: qnorm_tmp
+        TMP: qnorm_tmp
       run: |
         python -W ignore:ResourceWarning -m unittest
 
