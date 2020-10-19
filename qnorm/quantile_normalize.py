@@ -191,6 +191,7 @@ if pandas_import:
             np.save(tmp_vals[-1].name, data)
             np.save(tmp_sorted_vals[-1].name, sorted_vals)
             np.save(tmp_idxs[-1].name, sorted_idx)
+            del data, sorted_idx, sorted_vals
 
         # now that we have our target we can start normalizing in chunks
         qnorm_tmp = []
@@ -208,6 +209,7 @@ if pandas_import:
                 index_tmpfiles[-1].name, compression=None
             )
         qnorm_tmp.append(index_tmpfiles)
+        del index
 
         # now for each column chunk quantile normalize it onto our distribution
         for i in range(math.ceil(nr_cols / colchunksize)):
