@@ -25,8 +25,9 @@ jobs:
         pip install flake8 black mypy data-science-types  # code quality related
 
     - name: Run tests
+      env:
+        TMPDIR: /home/runner/work/
       run: |
-        export TMPDIR=$(pwd)
         python -W ignore:ResourceWarning -m unittest
 
     - name: Code formatting (black)
