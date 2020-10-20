@@ -93,7 +93,6 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
-    # @profile
     def quantile_normalize_file(
         infile: str,
         outfile: str,
