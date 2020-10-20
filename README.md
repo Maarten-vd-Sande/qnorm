@@ -34,9 +34,9 @@ D  4.666667  3.000000  5.666667
 
 Qnorm accepts an (optional) axis argument, which is used to normalize along. If axis=1 (default), standardize each sample (column), if axis=0, standardize each feature (row).
 
-* **note**: pandas is an optional dependency of qnorm, and if you want to make use of it make sure to install it yourself (`conda/pip install pandas`).
+* **note**: pandas is an optional dependency of qnorm, and if you want to quantile normalize dataframes make sure to install pandas yourself (`conda/pip install pandas`).
 
-* **note**: you can also pass numpy dataframes as input to `qnorm.quantile_normalize`.  
+* **note**: you can also pass numpy arrays as input to `qnorm.quantile_normalize`.  
 
 ### Multicore support
 
