@@ -22,12 +22,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .
+        pip install pandas tables
         pip install flake8 black mypy data-science-types  # code quality related
 
     - name: Run tests
-#      env:
-#        TMPDIR: qnorm_tmp
-#        TMP: qnorm_tmp
       run: |
         python -W ignore:ResourceWarning -m unittest
 

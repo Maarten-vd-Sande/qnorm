@@ -127,9 +127,6 @@ if pandas_import:
             ncpus: The number of cpus to use. Scales diminishingly, and more
                 than four is generally not useful.
         """
-        if os.path.exists(outfile):
-            os.remove(outfile)
-
         if infile.endswith((".hdf", ".h5")):
             dataformat = "hdf"
             columns, index = parse_hdf(infile)
@@ -253,6 +250,9 @@ if pandas_import:
                     np.save(tmpfile, chunk)
                 del qnormed, chunk
                 qnorm_tmp.append(col_tmpfiles)
+
+            if os.path.exists(outfile):
+                os.remove(outfile)
 
             # glue the separate files together and save them
             if dataformat == "hdf":
