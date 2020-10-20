@@ -128,7 +128,7 @@ qnorm.quantile_normalize(df, ncpus=4)
 
 ![mini benchmark file](imgs/benchmark_files.png)
 
-Our standard method does not come farther that 2^4=16 samples before running out of memory on a 512 gigabyte system! The file-based method has similar timings and even seems to scale better than the standard method for *large* arrays. But it takes *only* an hour to normalize 64 samples.
+Our standard method does not come farther that 2^4=16 samples before running out of memory on a 512 gigabyte system! The file-based method has similar timings and even seems to scale better than the standard method for *large* arrays. And it takes *only* an hour to normalize 64 samples.
 
 The `rowchunksize` and `colchunksize` respectively influence in how large of chunks the output is written to disk and how many columns are being sorted and quantile normalized at the same time. Generally speaking, the larger the better, however the defaults should most of the times be sufficiently fast.
 
