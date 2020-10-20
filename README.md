@@ -3,6 +3,7 @@
 [![Anaconda version](https://anaconda.org/conda-forge/qnorm/badges/version.svg)](https://anaconda.org/conda-forge/qnorm)
 ![tests](https://github.com/Maarten-vd-Sande/qnorm/workflows/tests/badge.svg)
 [![DOI](https://zenodo.org/badge/276373404.svg)](https://zenodo.org/badge/latestdoi/276373404)
+[![d](https://img.shields.io/pypi/dm/qnorm)](https://img.shields.io/pypi/dm/qnorm)
 
 Quantile normalization made easy! This tool was developed as the current (Python) implementations scattered across the web do not correctly resolve collisions/ties in the ranks. Properly resolving rank ties is important when ties happen frequently, such as when working with discrete numbers (integers) in count tables. This implementation should be relatively *fast*, and can use multiple cores to sort the columns and tie-resolvement is accelerated by numba.
 
@@ -33,7 +34,9 @@ D  4.666667  3.000000  5.666667
 
 Qnorm accepts an (optional) axis argument, which is used to normalize along. If axis=1 (default), standardize each sample (column), if axis=0, standardize each feature (row).
 
-* **note**: The function quantile_normalize also accepts numpy arrays. 
+* **note**: pandas is an optional dependency of qnorm, and if you want to make use of it make sure to install it yourself (`conda/pip install pandas`).
+
+* **note**: you can also pass numpy dataframes as input to `qnorm.quantile_normalize`.  
 
 ### Multicore support
 
@@ -129,13 +132,13 @@ Our standard method does not come farther that 2^4=16 samples before running out
 
 The `rowchunksize` and `colchunksize` respectively influence in how large of chunks the output is written to disk and how many columns are being sorted and quantile normalized at the same time. Generally speaking, the larger the better, however the defaults should most of the times be sufficiently fast.
 
-* **note:** Both methods should produce identical results, and neither is more correct than the other.
+* **note**: Both methods should produce identical results, and neither is more correct than the other.
 
-* **note:** The memory-efficient implementation requires pandas to be installed (`conda/pip install pandas`).
+* **note**: The memory-efficient implementation requires pandas to be installed (`conda/pip install pandas`).
 
-* **note:** When using hdf files make sure to install (py)tables (`conda/pip install pytables`).
+* **note**: When using hdf files make sure to install (py)tables (`conda install pytables` or `pip install tables`).
 
-* **note:** The input format specifies the output format.
+* **note**: The input format specifies the output format.
 
 ## Command Line Interface (CLI) example
 
@@ -175,9 +178,9 @@ C       3.0     5.166666666666666       4.666666666666666
 D       4.666666666666666       3.0     5.666666666666666
 ```
 
-* **note:** the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process. Lines starting with a hashtag "#" are treated as comments and ignored.
+* **note**: the qnorm cli assumes that the first column and the first row are used as descriptors, and are "ignored" in the quantile normalization process. Lines starting with a hashtag "#" are treated as comments and ignored.
 
-* **note:** The CLI requires pandas to be installed (`conda/pip install pandas`)
+* **note**: The CLI requires pandas to be installed (`conda/pip install pandas`)
 
 ## Installation
 
