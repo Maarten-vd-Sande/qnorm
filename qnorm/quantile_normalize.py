@@ -6,7 +6,14 @@ from typing import overload, Union
 import numba
 import numpy as np
 
-from .util import TempFileHolder, glue_csv, glue_hdf, parse_csv, parse_hdf, _parallel_argsort
+from .util import (
+    TempFileHolder,
+    glue_csv,
+    glue_hdf,
+    parse_csv,
+    parse_hdf,
+    _parallel_argsort,
+)
 
 try:
     import pandas as pd
@@ -182,7 +189,9 @@ if pandas_import:
                 rankmeans = np.mean(sorted_vals, axis=1)
 
                 # update the target
-                target += (rankmeans - target) * ((col_end - col_start) / (col_end))
+                target += (rankmeans - target) * (
+                    (col_end - col_start) / (col_end)
+                )
 
                 # save all our intermediate stuff
                 tmp_vals.append(
@@ -217,7 +226,7 @@ if pandas_import:
             qnorm_tmp.append(index_tmpfiles)
             del index
 
-            # now for each column chunk quantile normalize it onto our distribution
+            # for each column chunk quantile normalize it onto our distribution
             for i in range(math.ceil(nr_cols / colchunksize)):
                 # read the relevant columns in
                 data = np.load(tmp_vals[i], allow_pickle=True)
@@ -225,7 +234,9 @@ if pandas_import:
                 sorted_vals = np.load(tmp_sorted_vals[i], allow_pickle=True)
 
                 # quantile normalize
-                qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
+                qnormed = _numba_accel_qnorm(
+                    data, sorted_idx, sorted_vals, target
+                )
                 del data, sorted_idx, sorted_vals
 
                 # store it in tempfile
@@ -235,7 +246,9 @@ if pandas_import:
                         qnormed, math.ceil(qnormed.shape[0] / rowchunksize)
                     )
                 ):
-                    tmpfile = tfh.get_filename(prefix=f"qnorm_{i}_{j}_", suffix=".npy")
+                    tmpfile = tfh.get_filename(
+                        prefix=f"qnorm_{i}_{j}_", suffix=".npy"
+                    )
                     col_tmpfiles.append(tmpfile)
                     np.save(tmpfile, chunk)
                 del qnormed, chunk

@@ -25,9 +25,9 @@ jobs:
         pip install flake8 black mypy data-science-types  # code quality related
 
     - name: Run tests
-      env:
-        TMPDIR: qnorm_tmp
-        TMP: qnorm_tmp
+#      env:
+#        TMPDIR: qnorm_tmp
+#        TMP: qnorm_tmp
       run: |
         python -W ignore:ResourceWarning -m unittest
 

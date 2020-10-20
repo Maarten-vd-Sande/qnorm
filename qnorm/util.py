@@ -25,7 +25,9 @@ class TempFileHolder:
     def get_filename(self, prefix="", suffix=""):
         tmpdir = tempfile.gettempdir()
         for i in range(100):
-            rand_seq = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            rand_seq = "".join(
+                random.choices(string.ascii_uppercase + string.digits, k=8)
+            )
             filename = f"{tmpdir}/{prefix}{rand_seq}{suffix}"
             if os.path.exists(filename):
                 continue
