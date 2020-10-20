@@ -1,11 +1,19 @@
-from multiprocessing import Pool, RawArray
+import os
+import math
 from functools import singledispatch
 from typing import overload, Union
 
 import numba
 import numpy as np
 
-from .util import worker_init, worker_sort
+from .util import (
+    TempFileHolder,
+    glue_csv,
+    glue_hdf,
+    parse_csv,
+    parse_hdf,
+    _parallel_argsort,
+)
 
 try:
     import pandas as pd
@@ -22,14 +30,21 @@ if pandas_import:
     def quantile_normalize(data: pd.DataFrame,
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
-                           ncpus: int = 1
+                           ncpus: int = 1,
+                           ) -> pd.DataFrame: ...
+
+    @overload
+    def quantile_normalize(data: str,
+                           axis: int = 1,
+                           target: Union[None, np.ndarray] = None,
+                           ncpus: int = 1,
                            ) -> pd.DataFrame: ...
 
     @overload
     def quantile_normalize(data: np.ndarray,
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
-                           ncpus: int = 1
+                           ncpus: int = 1,
                            ) -> np.ndarray: ...
     # fmt: on
 
@@ -53,6 +68,7 @@ if pandas_import:
                   Axis=0 normalizes each row/feature giving them all identical
                   distributions.
             target: distribution to normalize onto
+            ncpus: number of cpus to use for normalization
 
         Returns: a quantile normalized copy of the input.
         """
@@ -77,12 +93,177 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
+    def quantile_normalize_file(
+        infile: str,
+        outfile: str,
+        rowchunksize: int = 100_000,
+        colchunksize: int = 8,
+        ncpus: int = 1,
+    ) -> None:
+        """
+        Memory-efficient quantile normalization implementation by splitting
+        the task into sequential subtasks, and writing the intermediate results
+        to disk instead of keeping them in memory. This makes the memory
+        footprint independent of the input table, however also slower..
+
+        Args:
+            infile: path to input table. The table can be either a csv-like file
+                of which the delimiter is auto detected. Or the infile can be a
+                hdf file, which requires to be stored with format=table.
+            outfile: path to the output table. Has the same layout and delimiter
+                as the input file. If the input is csv-like, the output is csv-
+                like. If the input is hdf, then the output is hdf.
+            rowchunksize: how many rows to read/write at the same time when
+                combining intermediate results. More is faster, but also uses
+                more memory.
+            colchunksize: how many columns to use at the same time when
+                calculating the mean and normalizing. More is faster, but also
+                uses more memory.
+            ncpus: The number of cpus to use. Scales diminishingly, and more
+                than four is generally not useful.
+        """
+        if infile.endswith((".hdf", ".h5")):
+            dataformat = "hdf"
+            columns, index = parse_hdf(infile)
+        elif infile.endswith((".csv", ".tsv", ".txt")):
+            dataformat = "csv"
+            columns, index, delimiter = parse_csv(infile)
+        else:
+            raise NotImplementedError("")
+
+        # now scan the table for which columns and indices it contains
+        nr_cols = len(columns)
+        nr_rows = len(index)
+
+        # store intermediate tables
+        tmp_vals = []
+        tmp_sorted_vals = []
+        tmp_idxs = []
+
+        # calculate the target (rank means)
+        target = np.zeros(nr_rows)
+
+        with TempFileHolder() as tfh:
+            # loop over our column chunks and keep updating our target
+            for i in range(math.ceil(nr_cols / colchunksize)):
+                col_start, col_end = i * colchunksize, np.clip(
+                    (i + 1) * colchunksize, 0, nr_cols
+                )
+                # read relevant columns
+                if dataformat == "hdf":
+                    with pd.HDFStore(infile) as hdf:
+                        assert len(hdf.keys()) == 1
+                        key = hdf.keys()[0]
+                        cols = [
+                            hdf.select_column(key, columns[i])
+                            for i in range(col_start, col_end)
+                        ]
+                        df = pd.concat(cols, axis=1).astype("float32")
+                elif dataformat == "csv":
+                    df = pd.read_csv(
+                        infile,
+                        sep=delimiter,
+                        comment="#",
+                        index_col=0,
+                        usecols=[0, *list(range(col_start + 1, col_end + 1))],
+                    ).astype("float32")
+
+                # get the rank means
+                data, sorted_idx = _parallel_argsort(
+                    df.values, ncpus, df.values.dtype
+                )
+                del df
+                sorted_vals = np.take_along_axis(
+                    data,
+                    sorted_idx,
+                    axis=0,
+                )
+                rankmeans = np.mean(sorted_vals, axis=1)
+
+                # update the target
+                target += (rankmeans - target) * (
+                    (col_end - col_start) / (col_end)
+                )
+
+                # save all our intermediate stuff
+                tmp_vals.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
+                )
+                tmp_sorted_vals.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
+                )
+                tmp_idxs.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
+                )
+                np.save(tmp_vals[-1], data)
+                np.save(tmp_sorted_vals[-1], sorted_vals)
+                np.save(tmp_idxs[-1], sorted_idx)
+                del data, sorted_idx, sorted_vals
+
+            # now that we have our target we can start normalizing in chunks
+            qnorm_tmp = []
+
+            # store intermediate results
+            # and start with our index and store it
+            index_tmpfiles = []
+            for chunk in np.array_split(
+                index, math.ceil(len(index) / rowchunksize)
+            ):
+                index_tmpfiles.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".p")
+                )
+                pd.DataFrame(chunk).to_pickle(
+                    index_tmpfiles[-1], compression=None
+                )
+            qnorm_tmp.append(index_tmpfiles)
+            del index
+
+            # for each column chunk quantile normalize it onto our distribution
+            for i in range(math.ceil(nr_cols / colchunksize)):
+                # read the relevant columns in
+                data = np.load(tmp_vals[i], allow_pickle=True)
+                sorted_idx = np.load(tmp_idxs[i], allow_pickle=True)
+                sorted_vals = np.load(tmp_sorted_vals[i], allow_pickle=True)
+
+                # quantile normalize
+                qnormed = _numba_accel_qnorm(
+                    data, sorted_idx, sorted_vals, target
+                )
+                del data, sorted_idx, sorted_vals
+
+                # store it in tempfile
+                col_tmpfiles = []
+                for j, chunk in enumerate(
+                    np.array_split(
+                        qnormed, math.ceil(qnormed.shape[0] / rowchunksize)
+                    )
+                ):
+                    tmpfile = tfh.get_filename(
+                        prefix=f"qnorm_{i}_{j}_", suffix=".npy"
+                    )
+                    col_tmpfiles.append(tmpfile)
+                    np.save(tmpfile, chunk)
+                del qnormed, chunk
+                qnorm_tmp.append(col_tmpfiles)
+
+            if os.path.exists(outfile):
+                os.remove(outfile)
+
+            # glue the separate files together and save them
+            if dataformat == "hdf":
+                glue_hdf(outfile, columns, qnorm_tmp)
+            elif dataformat == "csv":
+                glue_csv(outfile, columns, qnorm_tmp, delimiter)
+
 
 else:
 
     @singledispatch
     def quantile_normalize(
-        data: np.ndarray, axis: int = 1, target: Union[None, np.ndarray] = None
+        data: np.ndarray,
+        axis: int = 1,
+        target: Union[None, np.ndarray] = None,
+        ncpus: int = 1,
     ) -> np.ndarray:
         """
         Quantile normalize your array.
@@ -97,6 +278,7 @@ else:
                   Axis=0 normalizes each row/feature giving them all identical
                   distributions.
             target: distribution to normalize onto
+            ncpus: number of cpus to use for normalization
 
         Returns: a quantile normalized copy of the input.
         """
@@ -149,22 +331,7 @@ def quantile_normalize_np(
     elif ncpus > 1:
         # multiproces sorting
         # first we make a shared array
-        data_shared = RawArray(
-            np.ctypeslib.as_ctypes_type(dtype), _data.shape[0] * _data.shape[1]
-        )
-        # and wrap it with a numpy array and fill it with our data
-        data = np.frombuffer(data_shared, dtype=dtype).reshape(_data.shape)
-        np.copyto(data, _data.astype(dtype))
-
-        # now multiprocess sort
-        with Pool(
-            processes=ncpus,
-            initializer=worker_init,
-            initargs=(data_shared, dtype, data.shape),
-        ) as pool:
-            sorted_idx = np.array(
-                pool.map(worker_sort, range(data.shape[1])), dtype=np.int64
-            ).T
+        data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
     else:
         raise ValueError("The number of cpus needs to be a positive integer.")
 
