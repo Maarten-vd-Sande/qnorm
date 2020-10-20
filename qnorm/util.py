@@ -1,8 +1,38 @@
+import os
 import warnings
+import tempfile
+import random
+import string
+from pathlib import Path
 from multiprocessing import Pool, RawArray
 
 import numpy as np
 import pandas as pd
+
+
+class TempFileHolder:
+    def __enter__(self):
+        self.tmpfiles = list()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # remove all the files
+        for file in self.tmpfiles:
+            if os.path.isfile(file):
+                os.remove(file)
+
+    @profile
+    def get_filename(self, prefix="", suffix=""):
+        tmpdir = tempfile.gettempdir()
+        for i in range(100):
+            rand_seq = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            filename = f"{tmpdir}/{prefix}{rand_seq}{suffix}"
+            if os.path.exists(filename):
+                continue
+            else:
+                Path(filename).touch()
+                self.tmpfiles.append(filename)
+                return filename
 
 
 def parse_csv(infile):
@@ -55,6 +85,18 @@ def glue_csv(outfile, header, colfiles, delimiter):
             outfile.write(_glue_csv(lotsalines, delimiter))
 
 
+def _glue_csv(lotsalines, delimiter):
+    """
+    private function of qnorm that that can combine multiple chunks of rows and
+    columns into a single table.
+    """
+    stack = np.hstack(lotsalines)
+    fmt = delimiter.join(["%s"] + ["%g"] * (stack.shape[1] - 1))
+    fmt = "\n".join([fmt] * stack.shape[0])
+    data = fmt % tuple(stack.ravel())
+    return data + "\n"
+
+
 def glue_hdf(outfile, header, colfiles):
     """
     glue multiple hdf into a single hdf
@@ -101,19 +143,7 @@ def read_lines(files):
         a list with a string per line
     """
     for file in files:
-        yield np.load(file.name, allow_pickle=True)
-
-
-def _glue_csv(lotsalines, delimiter):
-    """
-    private function of qnorm that that can combine multiple chunks of rows and
-    columns into a single table.
-    """
-    stack = np.hstack(lotsalines)
-    fmt = delimiter.join(["%s"] + ["%g"] * (stack.shape[1] - 1))
-    fmt = "\n".join([fmt] * stack.shape[0])
-    data = fmt % tuple(stack.ravel())
-    return data + "\n"
+        yield np.load(file, allow_pickle=True)
 
 
 def _parallel_argsort(_array, ncpus, dtype):

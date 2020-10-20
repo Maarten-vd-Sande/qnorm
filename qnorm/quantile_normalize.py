@@ -1,13 +1,12 @@
 import os
 import math
-import tempfile
 from functools import singledispatch
 from typing import overload, Union
 
 import numba
 import numpy as np
 
-from .util import glue_csv, glue_hdf, parse_csv, parse_hdf, _parallel_argsort
+from .util import TempFileHolder, glue_csv, glue_hdf, parse_csv, parse_hdf, _parallel_argsort
 
 try:
     import pandas as pd
@@ -91,7 +90,7 @@ if pandas_import:
         qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
-    # @profile
+    @profile
     def quantile_normalize_file(
         infile: str,
         outfile: str,
@@ -145,113 +144,108 @@ if pandas_import:
         # calculate the target (rank means)
         target = np.zeros(nr_rows)
 
-        # loop over our column chunks and keep updating our target
-        for i in range(math.ceil(nr_cols / colchunksize)):
-            col_start, col_end = i * colchunksize, np.clip(
-                (i + 1) * colchunksize, 0, nr_cols
-            )
-            # read relevant columns
-            if dataformat == "hdf":
-                with pd.HDFStore(infile) as hdf:
-                    assert len(hdf.keys()) == 1
-                    key = hdf.keys()[0]
-                    cols = [
-                        hdf.select_column(key, columns[i])
-                        for i in range(col_start, col_end)
-                    ]
-                    df = pd.concat(cols, axis=1).astype("float32")
-            elif dataformat == "csv":
-                df = pd.read_csv(
-                    infile,
-                    sep=delimiter,
-                    comment="#",
-                    index_col=0,
-                    usecols=[0, *list(range(col_start + 1, col_end + 1))],
-                ).astype("float32")
-
-            # get the rank means
-            data, sorted_idx = _parallel_argsort(
-                df.values, ncpus, df.values.dtype
-            )
-            del df
-            sorted_vals = np.take_along_axis(
-                data,
-                sorted_idx,
-                axis=0,
-            )
-            rankmeans = np.mean(sorted_vals, axis=1)
-
-            # update the target
-            target += (rankmeans - target) * ((col_end - col_start) / (col_end))
-
-            # save all our intermediate stuff
-            tmp_vals.append(
-                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".npy")
-            )
-            tmp_sorted_vals.append(
-                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".npy")
-            )
-            tmp_idxs.append(
-                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".npy")
-            )
-            np.save(tmp_vals[-1].name, data)
-            np.save(tmp_sorted_vals[-1].name, sorted_vals)
-            np.save(tmp_idxs[-1].name, sorted_idx)
-            del data, sorted_idx, sorted_vals
-
-        # now that we have our target we can start normalizing in chunks
-        qnorm_tmp = []
-
-        # store intermediate results
-        # and start with our index and store it
-        index_tmpfiles = []
-        for chunk in np.array_split(
-            index, math.ceil(len(index) / rowchunksize)
-        ):
-            index_tmpfiles.append(
-                tempfile.NamedTemporaryFile(prefix="qnorm", suffix=".p")
-            )
-            pd.DataFrame(chunk).to_pickle(
-                index_tmpfiles[-1].name, compression=None
-            )
-        qnorm_tmp.append(index_tmpfiles)
-        del index
-
-        # now for each column chunk quantile normalize it onto our distribution
-        for i in range(math.ceil(nr_cols / colchunksize)):
-            # read the relevant columns in
-            data = np.load(tmp_vals[i].name, allow_pickle=True)
-            sorted_idx = np.load(tmp_idxs[i].name, allow_pickle=True)
-            sorted_vals = np.load(tmp_sorted_vals[i].name, allow_pickle=True)
-
-            # quantile normalize
-            qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
-            del data, sorted_idx, sorted_vals
-
-            # store it in tempfile
-            col_tmpfiles = []
-            for j, chunk in enumerate(
-                np.array_split(
-                    qnormed, math.ceil(qnormed.shape[0] / rowchunksize)
+        with TempFileHolder() as tfh:
+            # loop over our column chunks and keep updating our target
+            for i in range(math.ceil(nr_cols / colchunksize)):
+                col_start, col_end = i * colchunksize, np.clip(
+                    (i + 1) * colchunksize, 0, nr_cols
                 )
+                # read relevant columns
+                if dataformat == "hdf":
+                    with pd.HDFStore(infile) as hdf:
+                        assert len(hdf.keys()) == 1
+                        key = hdf.keys()[0]
+                        cols = [
+                            hdf.select_column(key, columns[i])
+                            for i in range(col_start, col_end)
+                        ]
+                        df = pd.concat(cols, axis=1).astype("float32")
+                elif dataformat == "csv":
+                    df = pd.read_csv(
+                        infile,
+                        sep=delimiter,
+                        comment="#",
+                        index_col=0,
+                        usecols=[0, *list(range(col_start + 1, col_end + 1))],
+                    ).astype("float32")
+
+                # get the rank means
+                data, sorted_idx = _parallel_argsort(
+                    df.values, ncpus, df.values.dtype
+                )
+                del df
+                sorted_vals = np.take_along_axis(
+                    data,
+                    sorted_idx,
+                    axis=0,
+                )
+                rankmeans = np.mean(sorted_vals, axis=1)
+
+                # update the target
+                target += (rankmeans - target) * ((col_end - col_start) / (col_end))
+
+                # save all our intermediate stuff
+                tmp_vals.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
+                )
+                tmp_sorted_vals.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
+                )
+                tmp_idxs.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
+                )
+                np.save(tmp_vals[-1], data)
+                np.save(tmp_sorted_vals[-1], sorted_vals)
+                np.save(tmp_idxs[-1], sorted_idx)
+                del data, sorted_idx, sorted_vals
+
+            # now that we have our target we can start normalizing in chunks
+            qnorm_tmp = []
+
+            # store intermediate results
+            # and start with our index and store it
+            index_tmpfiles = []
+            for chunk in np.array_split(
+                index, math.ceil(len(index) / rowchunksize)
             ):
-                tmpfile = tempfile.NamedTemporaryFile(
-                    prefix=f"qnorm_{i}_{j}", suffix=".npy"
+                index_tmpfiles.append(
+                    tfh.get_filename(prefix="qnorm_", suffix=".p")
                 )
-                col_tmpfiles.append(tmpfile)
-                np.save(tmpfile.name, chunk)
-            del qnormed, chunk
-            qnorm_tmp.append(col_tmpfiles)
+                pd.DataFrame(chunk).to_pickle(
+                    index_tmpfiles[-1], compression=None
+                )
+            qnorm_tmp.append(index_tmpfiles)
+            del index
 
-        # glue the separate files together and save them
-        if dataformat == "hdf":
-            glue_hdf(outfile, columns, qnorm_tmp)
-        elif dataformat == "csv":
-            glue_csv(outfile, columns, qnorm_tmp, delimiter)
+            # now for each column chunk quantile normalize it onto our distribution
+            for i in range(math.ceil(nr_cols / colchunksize)):
+                # read the relevant columns in
+                data = np.load(tmp_vals[i], allow_pickle=True)
+                sorted_idx = np.load(tmp_idxs[i], allow_pickle=True)
+                sorted_vals = np.load(tmp_sorted_vals[i], allow_pickle=True)
 
-        # cleanup
-        # [tmpfile.close() for tmpfile in tmpfiles]
-        # [tmpfile.close() for tmpfiles in qnorm_tmp for tmpfile in tmpfiles]
+                # quantile normalize
+                qnormed = _numba_accel_qnorm(data, sorted_idx, sorted_vals, target)
+                del data, sorted_idx, sorted_vals
+
+                # store it in tempfile
+                col_tmpfiles = []
+                for j, chunk in enumerate(
+                    np.array_split(
+                        qnormed, math.ceil(qnormed.shape[0] / rowchunksize)
+                    )
+                ):
+                    tmpfile = tfh.get_filename(prefix=f"qnorm_{i}_{j}_", suffix=".npy")
+                    col_tmpfiles.append(tmpfile)
+                    np.save(tmpfile, chunk)
+                del qnormed, chunk
+                qnorm_tmp.append(col_tmpfiles)
+
+            # glue the separate files together and save them
+            if dataformat == "hdf":
+                glue_hdf(outfile, columns, qnorm_tmp)
+            elif dataformat == "csv":
+                glue_csv(outfile, columns, qnorm_tmp, delimiter)
 
 
 else:
