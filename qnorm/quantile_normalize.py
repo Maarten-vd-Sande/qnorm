@@ -31,7 +31,6 @@ if pandas_import:
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
                            ncpus: int = 1,
-                           **kwargs
                            ) -> pd.DataFrame: ...
 
     @overload
@@ -39,7 +38,6 @@ if pandas_import:
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
                            ncpus: int = 1,
-                           **kwargs
                            ) -> pd.DataFrame: ...
 
     @overload
@@ -47,7 +45,6 @@ if pandas_import:
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
                            ncpus: int = 1,
-                           **kwargs
                            ) -> np.ndarray: ...
     # fmt: on
 
@@ -57,7 +54,6 @@ if pandas_import:
         axis: int = 1,
         target: Union[None, np.ndarray] = None,
         ncpus: int = 1,
-        **kwargs,
     ) -> Union[pd.DataFrame, np.ndarray]:
         """
         Quantile normalize your array/dataframe.
@@ -102,7 +98,7 @@ if pandas_import:
         infile: str,
         outfile: str,
         rowchunksize: int = 100_000,
-        colchunksize: int = 64,
+        colchunksize: int = 8,
         ncpus: int = 1,
     ) -> None:
         """
@@ -269,7 +265,6 @@ else:
         axis: int = 1,
         target: Union[None, np.ndarray] = None,
         ncpus: int = 1,
-        **kwargs,
     ) -> np.ndarray:
         """
         Quantile normalize your array.
@@ -299,7 +294,6 @@ def quantile_normalize_np(
     axis: int = 1,
     target: Union[None, np.ndarray] = None,
     ncpus: int = 1,
-    **kwargs,
 ) -> np.ndarray:
     # check for supported dtypes
     if not np.issubdtype(_data.dtype, np.number):
