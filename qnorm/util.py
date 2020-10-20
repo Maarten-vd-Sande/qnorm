@@ -21,7 +21,7 @@ class TempFileHolder:
             if os.path.isfile(file):
                 os.remove(file)
 
-    @profile
+    # @profile
     def get_filename(self, prefix="", suffix=""):
         tmpdir = tempfile.gettempdir()
         for i in range(100):
