@@ -1,11 +1,23 @@
 {
     "title": "qnorm",
+    "description": "Fast (and correct!) quantile normalization in Python.",
+    "keywords": [
+        "bioinformatics",
+        "normalization",
+        "quantile normalization",
+        "python",
+        "statistics"
+    ],
     "upload_type": "software",
     "creators": [
         {
-            "affiliation": "Radboud University",
             "name": "Maarten van der Sande",
+            "affiliation": "Radboud University",
             "orcid": "0000-0001-7803-1526"
         },
-    ]
+        {
+            "name": "Simon van Heeringen",
+            "affiliation": "Radboud University",
+            "orcid": "0000-0002-0411-3219"
+        }    ]
 }

@@ -7,7 +7,6 @@ from pathlib import Path
 from multiprocessing import Pool, RawArray
 
 import numpy as np
-import pandas as pd
 
 
 class TempFileHolder:
@@ -41,6 +40,8 @@ def parse_csv(infile):
     parse a csv file (memory efficient) and get the columns, index and
     delimiter from it.
     """
+    import pandas as pd
+
     delimiter = get_delim(infile)
     columns = [
         str(col)
@@ -61,6 +62,8 @@ def parse_hdf(infile):
     """
     parse a hdf file and get the columns and index from it.
     """
+    import pandas as pd
+
     # TODO: only table format
     columns = [col for col in pd.read_hdf(infile, start=0, stop=0).columns]
     with pd.HDFStore(infile) as hdf:
@@ -102,6 +105,8 @@ def glue_hdf(outfile, header, colfiles):
     """
     glue multiple hdf into a single hdf
     """
+    import pandas as pd
+
     open_colfiles = [read_lines(tmpfiles) for tmpfiles in colfiles]
 
     for lotsalines in zip(*open_colfiles):
@@ -121,6 +126,8 @@ def glue_hdf(outfile, header, colfiles):
 
 
 def get_delim(table):
+    import pandas as pd
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         delimiter = pd.read_csv(
