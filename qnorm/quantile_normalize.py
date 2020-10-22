@@ -146,8 +146,9 @@ if pandas_import:
         with TempFileHolder() as tfh:
             # loop over our column chunks and keep updating our target
             for i in range(math.ceil(nr_cols / colchunksize)):
-                col_start, col_end = i * colchunksize, np.clip(
-                    (i + 1) * colchunksize, 0, nr_cols
+                col_start, col_end = (
+                    i * colchunksize,
+                    np.clip((i + 1) * colchunksize, 0, nr_cols),
                 )
                 # read relevant columns
                 if dataformat == "hdf":
@@ -173,11 +174,7 @@ if pandas_import:
                     df.values, ncpus, df.values.dtype
                 )
                 del df
-                sorted_vals = np.take_along_axis(
-                    data,
-                    sorted_idx,
-                    axis=0,
-                )
+                sorted_vals = np.take_along_axis(data, sorted_idx, axis=0,)
                 rankmeans = np.mean(sorted_vals, axis=1)
 
                 # update the target
