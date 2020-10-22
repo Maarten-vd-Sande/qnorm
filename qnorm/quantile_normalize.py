@@ -174,7 +174,11 @@ if pandas_import:
                     df.values, ncpus, df.values.dtype
                 )
                 del df
-                sorted_vals = np.take_along_axis(data, sorted_idx, axis=0,)
+                sorted_vals = np.take_along_axis(
+                    data,
+                    sorted_idx,
+                    axis=0,
+                )
                 rankmeans = np.mean(sorted_vals, axis=1)
 
                 # update the target
