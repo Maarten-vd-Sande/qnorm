@@ -3,7 +3,8 @@
 [![Anaconda version](https://anaconda.org/conda-forge/qnorm/badges/version.svg)](https://anaconda.org/conda-forge/qnorm)
 ![tests](https://github.com/Maarten-vd-Sande/qnorm/workflows/tests/badge.svg)
 [![DOI](https://zenodo.org/badge/276373404.svg)](https://zenodo.org/badge/latestdoi/276373404)
-[![d](https://img.shields.io/pypi/dm/qnorm)](https://img.shields.io/pypi/dm/qnorm)
+[![monthd](https://img.shields.io/pypi/dm/qnorm)](https://img.shields.io/pypi/dm/qnorm)
+[![totald](https://anaconda.org/conda-forge/qnorm/badges/downloads.svg)](https://anaconda.org/conda-forge/qnorm/badges/downloads.svg)
 
 Quantile normalization made easy! This tool was developed as the current (Python) implementations scattered across the web do not correctly resolve collisions/ties in the ranks. Properly resolving rank ties is important when ties happen frequently, such as when working with discrete numbers (integers) in count tables. This implementation should be relatively *fast*, and can use multiple cores to sort the columns and tie-resolvement is accelerated by numba.
 
