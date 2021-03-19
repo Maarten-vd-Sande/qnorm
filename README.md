@@ -119,7 +119,7 @@ We can now compare the speed and memory of the file-based method vs the "standar
 import qnorm
 
 # file based
-qnorm.quantile_normalize_file("hg_bins.hdf", "hg_bins_qnorm.hdf", rowchunksize=500_000, colchunksize=4, ncpus=4)
+qnorm.incremental_quantile_normalize("hg_bins.hdf", "hg_bins_qnorm.hdf", rowchunksize=500_000, colchunksize=4, ncpus=4)
 
 # standard
 df = pd.read_hdf(f"hg_bins.hdf").astype("float32")
