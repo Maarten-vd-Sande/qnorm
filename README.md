@@ -110,7 +110,7 @@ Let's say we want to do something crazy like quantile normalize the human genome
 ```python
 df = pd.DataFrame(index=range(300_000_000), columns=["sample"+str(col) for col in range(64)])
 df[:] = np.random.randint(0, 100, size=df.shape)
-df.to_hdf("hg_bins.hdf", key="test", format='table', data_columns=True)
+df.to_hdf("hg_bins.hdf", key="qnorm", format='table', data_columns=True)
 ```
 
 We can now compare the speed and memory of the file-based method vs the "standard" method.
