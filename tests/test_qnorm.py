@@ -262,8 +262,8 @@ class TestQnorm(unittest.TestCase):
 
     def test_016_from_csv_largefile(self):
         """
-        test whether or not incremental_quantile_normalize works with a larger random
-        file
+        test whether or not incremental_quantile_normalize works with a larger
+        random file
         """
         np.random.seed(42)
         df1 = pd.DataFrame(index=range(5000), columns=range(100))
@@ -348,8 +348,8 @@ class TestQnorm(unittest.TestCase):
 
     def test_021_from_hdf_largefile(self):
         """
-        test whether or not incremental_quantile_normalize works with a larger random
-        file
+        test whether or not incremental_quantile_normalize works with a larger
+        random file
         """
         np.random.seed(42)
         df1 = pd.DataFrame(
