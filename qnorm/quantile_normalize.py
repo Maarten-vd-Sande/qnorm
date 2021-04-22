@@ -10,8 +10,10 @@ from .util import (
     TempFileHolder,
     glue_csv,
     glue_hdf,
+    glue_parquet,
     parse_csv,
     parse_hdf,
+    parse_parquet,
     _parallel_argsort,
 )
 
@@ -128,8 +130,13 @@ if pandas_import:
         elif infile.endswith((".csv", ".tsv", ".txt")):
             dataformat = "csv"
             columns, index, delimiter = parse_csv(infile)
+        elif infile.endswith((".parquet")):
+            dataformat = "parquet"
+            columns, index, index_used, schema = parse_parquet(infile)
         else:
-            raise NotImplementedError("")
+            raise NotImplementedError("Only HDF ('.hdf', '.h5'), "
+                                      "text ('.csv', '.tsv', '.txt'), "
+                                      "and parquet ('.parquet') formats are supported.")
 
         # now scan the table for which columns and indices it contains
         nr_cols = len(columns)
@@ -168,6 +175,11 @@ if pandas_import:
                         index_col=0,
                         usecols=[0, *list(range(col_start + 1, col_end + 1))],
                     ).astype("float32")
+                elif dataformat == "parquet":
+                    df = pd.read_parquet(
+                        infile,
+                        columns=columns[col_start:col_end]
+                    )
 
                 # get the rank means
                 data, sorted_idx = _parallel_argsort(
@@ -255,6 +267,8 @@ if pandas_import:
                 glue_hdf(outfile, columns, qnorm_tmp)
             elif dataformat == "csv":
                 glue_csv(outfile, columns, qnorm_tmp, delimiter)
+            elif dataformat == "parquet":
+                glue_parquet(outfile, columns, qnorm_tmp, index_used, schema)
 
 
 else:
