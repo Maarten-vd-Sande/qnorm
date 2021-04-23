@@ -134,9 +134,11 @@ if pandas_import:
             dataformat = "parquet"
             columns, index, index_used, schema = parse_parquet(infile)
         else:
-            raise NotImplementedError("Only HDF ('.hdf', '.h5'), "
-                                      "text ('.csv', '.tsv', '.txt'), "
-                                      "and parquet ('.parquet') formats are supported.")
+            raise NotImplementedError(
+                "Only HDF ('.hdf', '.h5'), "
+                "text ('.csv', '.tsv', '.txt'), "
+                "and parquet ('.parquet') formats are supported."
+            )
 
         # now scan the table for which columns and indices it contains
         nr_cols = len(columns)
@@ -177,8 +179,7 @@ if pandas_import:
                     ).astype("float32")
                 elif dataformat == "parquet":
                     df = pd.read_parquet(
-                        infile,
-                        columns=columns[col_start:col_end]
+                        infile, columns=columns[col_start:col_end]
                     )
 
                 # get the rank means

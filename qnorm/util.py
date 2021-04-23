@@ -84,7 +84,10 @@ def parse_parquet(infile):
     metadata = parquet.metadata
     schema = metadata.schema.to_arrow_schema()
 
-    columns = [metadata.schema.column(col_i).name for col_i in range(metadata.num_columns)]
+    columns = [
+        metadata.schema.column(col_i).name
+        for col_i in range(metadata.num_columns)
+    ]
     index_cols = [col for col in columns if "__index_level_" in col]
     assert len(index_cols) <= 1
 
@@ -170,10 +173,12 @@ def glue_parquet(outfile, header, colfiles, index_used, schema):
     elif str(schema.field(1).type) in ("double"):
         dtype = np.float64
     else:
-        raise NotImplementedError(f"The datatype {schema.field(1).type} is not "
-                                   "(yet) supported. Change the dtype of the "
-                                   "parquet file, or make an issue on the github "
-                                   "page.")
+        raise NotImplementedError(
+            f"The datatype {schema.field(1).type} is not "
+            "(yet) supported. Change the dtype of the "
+            "parquet file, or make an issue on the github "
+            "page."
+        )
 
     for lotsalines in zip(*open_colfiles):
         df = pd.DataFrame(np.hstack(lotsalines), dtype=dtype)
@@ -185,6 +190,7 @@ def glue_parquet(outfile, header, colfiles, index_used, schema):
             df = df.drop(df.columns[0], axis=1)
         df.columns = header
         writer.write_table(table=pyarrow.Table.from_pandas(df))
+
 
 def get_delim(table):
     import pandas as pd
