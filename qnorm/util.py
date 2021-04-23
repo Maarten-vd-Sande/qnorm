@@ -160,7 +160,6 @@ def glue_parquet(outfile, header, colfiles, index_used, schema):
     """
     glue multiple hdf into a single hdf
     """
-    import pyarrow
     import pandas as pd
     import pyarrow.parquet
 
@@ -181,11 +180,13 @@ def glue_parquet(outfile, header, colfiles, index_used, schema):
         )
 
     for lotsalines in zip(*open_colfiles):
-        df = pd.DataFrame(np.hstack(lotsalines), dtype=dtype)
         if index_used:
+            df = pd.DataFrame(np.hstack(lotsalines))
             df.set_index(0, inplace=True)
+            df = df.astype(dtype)
             df.index.name = None
         else:
+            df = pd.DataFrame(np.hstack(lotsalines), dtype=dtype)
             df = df.reset_index(drop=True)
             df = df.drop(df.columns[0], axis=1)
         df.columns = header

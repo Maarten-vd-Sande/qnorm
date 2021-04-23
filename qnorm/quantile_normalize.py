@@ -346,7 +346,6 @@ def quantile_normalize_np(
         sorted_idx = np.argsort(data, axis=0)
     elif ncpus > 1:
         # multiproces sorting
-        # first we make a shared array
         data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
     else:
         raise ValueError("The number of cpus needs to be a positive integer.")
