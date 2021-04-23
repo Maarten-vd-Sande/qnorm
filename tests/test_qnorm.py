@@ -20,6 +20,7 @@ df1 = pd.DataFrame(
 )
 df1.to_csv("test.csv")
 df1.to_hdf("test.hdf", key="qnorm", format="table", data_columns=True, mode="w")
+df1.to_parquet("test.parquet")
 
 
 class TestQnorm(unittest.TestCase):
@@ -374,6 +375,134 @@ class TestQnorm(unittest.TestCase):
         )
 
     def test_022(self):
+        """
+        Test another array, not just wiki example.
+        """
+        df = pd.DataFrame(
+            {
+                "C1": {
+                    "A": 2.0,
+                    "B": 2.0,
+                    "C": 2.0,
+                    "D": 2.0,
+                    "E": 6.0,
+                    "F": 1.0,
+                },
+                "C2": {
+                    "A": 2.0,
+                    "B": 2.0,
+                    "C": 1.0,
+                    "D": 3.5,
+                    "E": 5.0,
+                    "F": 1.0,
+                },
+            }
+        )
+        np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df).values,
+            np.array(
+                [
+                    [2.0625, 2.0],
+                    [2.0625, 2.0],
+                    [2.0625, 1.25],
+                    [2.0625, 2.75],
+                    [5.5, 5.5],
+                    [1.0, 1.25],
+                ]
+            ),
+        )
+
+    def test_023_from_parquet(self):
+        """
+        test the basic incremental_quantile_normalize functionality
+        """
+        qnorm.incremental_quantile_normalize("test.parquet", "test_out.parquet")
+        df1 = pd.read_parquet("test.parquet")
+        df2 = pd.read_parquet("test_out.parquet")
+
+        np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df1), df2.values, decimal=5
+        )
+
+    def test_024_from_parquet_rowchunk(self):
+        """
+        test the incremental_quantile_normalize with rowchunks functionality
+        """
+        df1 = pd.read_parquet("test.parquet")
+
+        for rowchunksize in range(1, 10):
+            qnorm.incremental_quantile_normalize(
+                "test.parquet", "test_out.parquet", rowchunksize=rowchunksize
+            )
+            df2 = pd.read_parquet("test_out.parquet")
+
+            np.testing.assert_almost_equal(
+                qnorm.quantile_normalize(df1), df2.values, decimal=5
+            )
+
+    def test_025_from_parquet_colchunk(self):
+        """
+        test the incremental_quantile_normalize with colchunks functionality
+        """
+        df1 = pd.read_parquet("test.parquet")
+
+        for colchunksize in range(1, 10):
+            qnorm.incremental_quantile_normalize(
+                "test.parquet", "test_out.parquet", colchunksize=colchunksize
+            )
+            df2 = pd.read_parquet("test_out.parquet")
+
+            np.testing.assert_almost_equal(
+                qnorm.quantile_normalize(df1), df2.values, decimal=5
+            )
+
+    def test_026_from_parquet_colrowchunk(self):
+        """
+        test the incremental_quantile_normalize with both row and colchunks
+        """
+        df1 = pd.read_parquet("test.parquet")
+
+        for colchunksize in range(1, 10):
+            for rowchunksize in range(1, 10):
+                qnorm.incremental_quantile_normalize(
+                    "test.parquet",
+                    "test_out.parquet",
+                    rowchunksize=rowchunksize,
+                    colchunksize=colchunksize,
+                )
+                df2 = pd.read_parquet("test_out.parquet")
+
+                np.testing.assert_almost_equal(
+                    qnorm.quantile_normalize(df1), df2.values, decimal=5
+                )
+
+    def test_027_from_parquet_largefile(self):
+        """
+        test whether or not incremental_quantile_normalize works with a larger
+        random file
+        """
+        np.random.seed(42)
+        df1 = pd.DataFrame(
+            index=range(5000),
+            columns=["sample" + str(col) for col in range(100)],
+        )
+        df1[:] = np.random.randint(0, 100, size=df1.shape)
+        df1 = df1.astype(float)
+        df1.to_parquet("test_large.parquet")
+
+        qnorm.incremental_quantile_normalize(
+            "test_large.parquet",
+            "test_large_out.parquet",
+            rowchunksize=11,
+            colchunksize=11,
+        )
+        df2 = pd.read_parquet("test_large_out.parquet")
+
+        np.testing.assert_almost_equal(
+            qnorm.quantile_normalize(df1), df2.values, decimal=4
+        )
+
+    def test_028(self):
         """
         Test another array, not just wiki example.
         """

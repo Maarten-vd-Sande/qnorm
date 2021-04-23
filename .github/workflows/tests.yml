@@ -22,7 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install .
-        pip install pandas tables
+        pip install pandas tables pyarrow
         pip install flake8 black mypy data-science-types  # code quality related
 
     - name: Run tests

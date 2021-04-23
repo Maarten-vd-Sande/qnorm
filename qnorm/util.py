@@ -73,6 +73,37 @@ def parse_hdf(infile):
     return columns, index
 
 
+def parse_parquet(infile):
+    """
+    parse a parquet file and get the columns and index from it.
+    """
+    import pandas as pd
+    from pyarrow.parquet import ParquetFile
+
+    parquet = ParquetFile(infile)
+    metadata = parquet.metadata
+    schema = metadata.schema.to_arrow_schema()
+
+    columns = [
+        metadata.schema.column(col_i).name
+        for col_i in range(metadata.num_columns)
+    ]
+    index_cols = [col for col in columns if "__index_level_" in col]
+    assert len(index_cols) <= 1
+
+    if len(index_cols) == 1:
+        index_col = index_cols[0]
+        index = pd.read_parquet(infile, columns=[index_col]).index.values
+        index_used = True
+    else:
+        index_col = "__non-existing-col__"
+        index = list(range(parquet.metadata.num_rows))
+        index_used = False
+
+    columns = [col for col in columns if col != index_col]
+    return columns, index, index_used, schema
+
+
 def glue_csv(outfile, header, colfiles, delimiter):
     """
     glue multiple csv into a single csv
@@ -123,6 +154,43 @@ def glue_hdf(outfile, header, colfiles):
             format="table",
             min_itemsize=15,
         )
+
+
+def glue_parquet(outfile, header, colfiles, index_used, schema):
+    """
+    glue multiple hdf into a single hdf
+    """
+    import pandas as pd
+    import pyarrow.parquet
+
+    writer = pyarrow.parquet.ParquetWriter(outfile, schema)
+
+    open_colfiles = [read_lines(tmpfiles) for tmpfiles in colfiles]
+
+    if str(schema.field(1).type) in ("float"):
+        dtype = np.float32
+    elif str(schema.field(1).type) in ("double"):
+        dtype = np.float64
+    else:
+        raise NotImplementedError(
+            f"The datatype {schema.field(1).type} is not "
+            "(yet) supported. Change the dtype of the "
+            "parquet file, or make an issue on the github "
+            "page."
+        )
+
+    for lotsalines in zip(*open_colfiles):
+        if index_used:
+            df = pd.DataFrame(np.hstack(lotsalines))
+            df.set_index(0, inplace=True)
+            df = df.astype(dtype)
+            df.index.name = None
+        else:
+            df = pd.DataFrame(np.hstack(lotsalines), dtype=dtype)
+            df = df.reset_index(drop=True)
+            df = df.drop(df.columns[0], axis=1)
+        df.columns = header
+        writer.write_table(table=pyarrow.Table.from_pandas(df))
 
 
 def get_delim(table):
