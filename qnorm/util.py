@@ -165,13 +165,24 @@ def glue_parquet(outfile, header, colfiles, index_used, schema):
 
     open_colfiles = [read_lines(tmpfiles) for tmpfiles in colfiles]
 
+    if str(schema.field(1).type) in ("float"):
+        dtype = np.float32
+    elif str(schema.field(1).type) in ("double"):
+        dtype = np.float64
+    else:
+        raise NotImplementedError(f"The datatype {schema.field(1).type} is not "
+                                   "(yet) supported. Change the dtype of the "
+                                   "parquet file, or make an issue on the github "
+                                   "page.")
+
     for lotsalines in zip(*open_colfiles):
-        df = pd.DataFrame(np.hstack(lotsalines))
+        df = pd.DataFrame(np.hstack(lotsalines), dtype=dtype)
         if index_used:
             df.set_index(0, inplace=True)
             df.index.name = None
         else:
             df = df.reset_index(drop=True)
+            df = df.drop(df.columns[0], axis=1)
         df.columns = header
         writer.write_table(table=pyarrow.Table.from_pandas(df))
 
