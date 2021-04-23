@@ -488,9 +488,7 @@ class TestQnorm(unittest.TestCase):
         )
         df1[:] = np.random.randint(0, 100, size=df1.shape)
         df1 = df1.astype(float)
-        df1.to_parquet(
-            "test_large.parquet"
-        )
+        df1.to_parquet("test_large.parquet")
 
         qnorm.incremental_quantile_normalize(
             "test_large.parquet",
