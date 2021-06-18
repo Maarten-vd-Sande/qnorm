@@ -143,6 +143,8 @@ The `rowchunksize` and `colchunksize` respectively influence in how large of chu
 
 * **note**: The input format specifies the output format.
 
+* **note**: Because of the design of hdf5, there is a limit on the number of columns it can hold. In case you have a lot of columns (500+), it is probably best to use parquet and not hdf5.
+
 ## Command Line Interface (CLI) example
 
 Qnorm also contains a CLI for converting csv/tsv files. The CLI depends on pandas, but this is an optional dependency of qnorm. To make use of the CLI make sure to install pandas in your current environment as well!
