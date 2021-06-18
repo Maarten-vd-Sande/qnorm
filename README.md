@@ -106,7 +106,7 @@ Using more than four cpus generally does not lead to a much bigger speedup.
 
 In case you want to quantile normalize excessively large tables, there is a "memory-efficient" implementation. This implementation gets its memory efficiency by calculating the mean "online", which means we calculate it on fractions of the total table and then update the value. The other change is that intermediate results are written to disk. This means that this implementation effectively swaps memory to disk, and thus is not "memory hungy", but "disk hungry". However this memory efficient method can scale to virtually infinitely large tables (or until you run out of disk space).
 
-Let's say we want to do something crazy like quantile normalize the human genome in 10 basepair bins. That means we will have around 300.000.000 values per sample. File-based qnorm works with both csv/tsv and hdf files, but for this example we will work with hdf files since they are faster (make sure to set `data_columns=True`).
+Let's say we want to do something crazy like quantile normalize the human genome in 10 basepair bins. That means we will have around 300.000.000 values per sample. File-based qnorm works with both csv/tsv, parquet, and hdf files. For this example we will work with hdf files (make sure to set `data_columns=True`). Parquet files also are fast, but csv/tsv files are very slow because of the enormous amount of I/O they require.
 
 ```python
 df = pd.DataFrame(index=range(300_000_000), columns=["sample"+str(col) for col in range(64)])
@@ -138,6 +138,8 @@ The `rowchunksize` and `colchunksize` respectively influence in how large of chu
 * **note**: The memory-efficient implementation requires pandas to be installed (`conda/pip install pandas`).
 
 * **note**: When using hdf files make sure to install (py)tables (`conda install pytables` or `pip install tables`).
+
+* **note**: When using parquet files make sure to install pyarrow (`conda install pyarrow` or `pip install pyarrow`).
 
 * **note**: The input format specifies the output format.
 
