@@ -267,7 +267,7 @@ class TestQnorm(unittest.TestCase):
         random file
         """
         np.random.seed(42)
-        df1 = pd.DataFrame(index=map(str, range(5000)), columns=list(map(str, range(100))))
+        df1 = pd.DataFrame(index=range(5000), columns=range(100))
         df1[:] = np.random.randint(0, 100, size=df1.shape)
         df1.to_csv("test_large.csv")
 
