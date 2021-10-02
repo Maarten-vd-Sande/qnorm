@@ -36,13 +36,6 @@ if pandas_import:
                            ) -> pd.DataFrame: ...
 
     @overload
-    def quantile_normalize(data: str,
-                           axis: int = 1,
-                           target: Union[None, np.ndarray] = None,
-                           ncpus: int = 1,
-                           ) -> pd.DataFrame: ...
-
-    @overload
     def quantile_normalize(data: np.ndarray,
                            axis: int = 1,
                            target: Union[None, np.ndarray] = None,
@@ -89,10 +82,10 @@ if pandas_import:
 
         # if we use axis 0, then already transpose here, and not later
         if axis == 0:
-            qn_data = qn_data.T
-            axis = 1
+            qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
+        else:
+            qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
 
-        qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
         return qn_data
 
     def incremental_quantile_normalize(
@@ -383,7 +376,10 @@ def quantile_normalize_np(
             )
         target = np.sort(target.astype(dtype=dtype))
 
-    return _numba_accel_qnorm(data, sorted_idx, sorted_val, target)
+    final_res = _numba_accel_qnorm(data, sorted_idx, sorted_val, target)
+    if axis == 0:
+        final_res = final_res.T
+    return final_res
 
 
 @numba.jit(nopython=True, fastmath=True, cache=True)
