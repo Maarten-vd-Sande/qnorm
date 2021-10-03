@@ -82,9 +82,13 @@ if pandas_import:
 
         # if we use axis 0, then already transpose here, and not later
         if axis == 0:
-            qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
+            qn_data[:] = quantile_normalize_np(
+                qn_data.values, axis, target, ncpus
+            )
         else:
-            qn_data[:] = quantile_normalize_np(qn_data.values, axis, target, ncpus)
+            qn_data[:] = quantile_normalize_np(
+                qn_data.values, axis, target, ncpus
+            )
 
         return qn_data
 
