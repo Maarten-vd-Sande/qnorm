@@ -102,14 +102,14 @@ Using more than four cpus generally does not lead to a much bigger speedup.
 
 ![mini benchmark](imgs/benchmark.png)
 
-### memory efficient quantile norm
+### incremental quantile norm
 
-In case you want to quantile normalize excessively large tables, there is a "memory-efficient" implementation. This implementation gets its memory efficiency by calculating the mean "online", which means we calculate it on fractions of the total table and then update the value. The other change is that intermediate results are written to disk. This means that this implementation effectively swaps memory to disk, and thus is not "memory hungy", but "disk hungry". However this memory efficient method can scale to virtually infinitely large tables (or until you run out of disk space).
+In case you want to quantile normalize excessively large tables, there is a "memory-efficient" implementation. This implementation gets its memory efficiency by calculating the mean "online", which means we calculate it on fractions of the total table and then update the value. The other change is that intermediate results are written to disk. This means that this implementation effectively swaps memory to disk, and thus is not "memory hungy", but "disk hungry". However this incremental method can scale to virtually infinitely large tables (or until you run out of disk space).
 
-Let's say we want to do something crazy like quantile normalize the human genome in 10 basepair bins. That means we will have around 300.000.000 values per sample. File-based qnorm works with both csv/tsv, parquet, and hdf files. For this example we will work with hdf files (make sure to set `data_columns=True`). Parquet files also are fast, but csv/tsv files are very slow because of the enormous amount of I/O they require.
+Let's say we want to do something crazy like quantile normalize the human genome in 10 basepair bins. That means we will have around 300.000.000 values per sample. File-based qnorm works with both csv/tsv, parquet, and hdf files. For this example we will work with hdf files (make sure to set `data_columns=True`). Parquet and hdf files also are fast, but csv/tsv files are (very) slow because of the enormous amount of I/O they require.
 
 ```python
-df = pd.DataFrame(index=range(300_000_000), columns=["sample"+str(col) for col in range(64)])
+df = pd.DataFrame(index=range(300_000_000), dtype=int, columns=["sample"+str(col) for col in range(64)])
 df[:] = np.random.randint(0, 100, size=df.shape)
 df.to_hdf("hg_bins.hdf", key="qnorm", format='table', data_columns=True)
 ```
@@ -119,23 +119,23 @@ We can now compare the speed and memory of the file-based method vs the "standar
 ```python
 import qnorm
 
-# file based
+# incremental qnorm (reads hg_bins.hdf from disk and writes output to hg_bins_qnorm.hdf) 
 qnorm.incremental_quantile_normalize("hg_bins.hdf", "hg_bins_qnorm.hdf", rowchunksize=500_000, colchunksize=4, ncpus=4)
 
 # standard
 df = pd.read_hdf(f"hg_bins.hdf").astype("float32")
-qnorm.quantile_normalize(df, ncpus=4)
+df_qnorm = qnorm.quantile_normalize(df, ncpus=4)
 ```
 
 ![mini benchmark file](imgs/benchmark_files.png)
 
-Our standard method does not come farther that 2^4=16 samples before running out of memory on a 512 gigabyte system! The file-based method has similar timings and even seems to scale better than the standard method for *large* arrays. And it takes *only* an hour to normalize 64 samples.
+Our standard method does not come farther that 2^4=16 samples before running out of memory on a 512 gigabyte system! The incremental method has similar timings and even seems to scale better than the standard method for *large* arrays. And it takes *only* an hour to normalize 64 samples.
 
 The `rowchunksize` and `colchunksize` respectively influence in how large of chunks the output is written to disk and how many columns are being sorted and quantile normalized at the same time. Generally speaking, the larger the better, however the defaults should most of the times be sufficiently fast.
 
-* **note**: Both methods should produce identical results, and neither is more correct than the other.
+* **note**: Both in-memory normalization as incremental normalization should produce identical results, and neither is more correct than the other.
 
-* **note**: The memory-efficient implementation requires pandas to be installed (`conda/pip install pandas`).
+* **note**: The incremental implementation requires pandas to be installed (`conda/pip install pandas`).
 
 * **note**: When using hdf files make sure to install (py)tables (`conda install pytables` or `pip install tables`).
 
