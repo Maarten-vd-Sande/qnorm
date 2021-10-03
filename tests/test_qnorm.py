@@ -356,7 +356,7 @@ class TestQnorm(unittest.TestCase):
         df1 = pd.DataFrame(
             index=range(5000),
             columns=["sample" + str(col) for col in range(100)],
-            dtype=int
+            dtype=int,
         )
         df1[:] = np.random.randint(0, 100, size=df1.shape)
         df1.to_hdf(
