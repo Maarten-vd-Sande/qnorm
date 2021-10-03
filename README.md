@@ -102,7 +102,7 @@ Using more than four cpus generally does not lead to a much bigger speedup.
 
 ![mini benchmark](imgs/benchmark.png)
 
-### incremental quantile norm
+### Incremental quantile norm
 
 In case you want to quantile normalize excessively large tables, there is a "memory-efficient" implementation. This implementation gets its memory efficiency by calculating the mean "online", which means we calculate it on fractions of the total table and then update the value. The other change is that intermediate results are written to disk. This means that this implementation effectively swaps memory to disk, and thus is not "memory hungy", but "disk hungry". However this incremental method can scale to virtually infinitely large tables (or until you run out of disk space).
 
