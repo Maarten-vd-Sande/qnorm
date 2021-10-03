@@ -168,12 +168,12 @@ class TestQnorm(unittest.TestCase):
         arr = np.random.normal(size=(50, 4))
 
         np.testing.assert_array_almost_equal(
-            qnorm.quantile_normalize(arr.T, axis=0),
+            qnorm.quantile_normalize(arr.T, axis=0).T,
             qnorm.quantile_normalize(arr, axis=1),
         )
         np.testing.assert_array_almost_equal(
             qnorm.quantile_normalize(arr, axis=1),
-            qnorm.quantile_normalize(arr.T, axis=0),
+            qnorm.quantile_normalize(arr.T, axis=0).T,
         )
 
     def test_011_axis_pandas(self):
@@ -189,12 +189,12 @@ class TestQnorm(unittest.TestCase):
         )
 
         np.testing.assert_array_almost_equal(
-            qnorm.quantile_normalize(df.T, axis=0),
+            qnorm.quantile_normalize(df.T, axis=0).T,
             qnorm.quantile_normalize(df, axis=1),
         )
         np.testing.assert_array_almost_equal(
             qnorm.quantile_normalize(df, axis=1),
-            qnorm.quantile_normalize(df.T, axis=0),
+            qnorm.quantile_normalize(df.T, axis=0).T,
         )
 
     def test_012_from_csv(self):
