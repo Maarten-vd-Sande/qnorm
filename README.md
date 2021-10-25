@@ -33,7 +33,7 @@ C  3.000000  5.166667  4.666667
 D  4.666667  3.000000  5.666667
 ```
 
-Qnorm accepts an (optional) axis argument, which is used to normalize along. If axis=1 (default), standardize each sample (column), if axis=0, standardize each feature (row).
+It is important to note that qnorm standardizes **along columns** by default, like in the wiki example above. However `qnorm.quantile_normalize` accepts an (optional) axis argument, which can be used to change this behaviour. If axis=1 (default), standardize along columns, if axis=0, standardize along rows.
 
 * **note**: pandas is an optional dependency of qnorm, and if you want to quantile normalize dataframes make sure to install pandas yourself (`conda/pip install pandas`).
 
