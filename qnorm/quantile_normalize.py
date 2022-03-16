@@ -268,7 +268,6 @@ if pandas_import:
             elif dataformat == "parquet":
                 glue_parquet(outfile, columns, qnorm_tmp, index_used, schema)
 
-
 else:
 
     @singledispatch
