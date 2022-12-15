@@ -2,8 +2,9 @@
 name = "qnorm"
 packages = ["qnorm"]
 description = "Quantile normalization"
-authors = [{name="Maarten van der Sande", email="maartenvandersande@hotmail.com"}]
-license = {"file"="LICENSE"}
+authors = [
+    "Maarten van der Sande <maartenvandersande@hotmail.com>"]
+license = "MIT"
 url = "https://github.com/Maarten-vd-Sande/qnorm"
 
 classifiers = [
@@ -21,10 +22,10 @@ install_requires = ["numba", "numpy<=1.20.0"]
 python_requires = ">3.6"
 
 [metadata]
-license_files = ["LICENSE"]
+license_files = "LICENSE"
 
 [build-system]
-requires = ["setuptools", "wheel", "toml"]
+requires = ["setuptools==60", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
