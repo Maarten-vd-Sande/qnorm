@@ -2,8 +2,7 @@
 name = "qnorm"
 packages = ["qnorm"]
 description = "Quantile normalization"
-authors = [
-    "Maarten van der Sande <maartenvandersande@hotmail.com>"]
+authors = [{name="Maarten van der Sande", email="maartenvandersande@hotmail.com"}]
 license = {"file"="LICENSE"}
 url = "https://github.com/Maarten-vd-Sande/qnorm"
 
