@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics"]
 
 install_requires = ["numba", "numpy>=1.24.0"]
-python_requires = ">3.6"
+python_requires = ">3.8"
 
 [metadata]
 license_files = "LICENSE"
