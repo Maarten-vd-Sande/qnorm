@@ -1,6 +1,6 @@
 {
     "title": "qnorm",
-    "description": "Fast (and correct!) quantile normalization in Python.",
+    "description": "Fast-ish (and correct!) quantile normalization in Python.",
     "keywords": [
         "bioinformatics",
         "normalization",
