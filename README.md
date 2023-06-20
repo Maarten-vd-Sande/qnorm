@@ -1,4 +1,4 @@
-# qnorm
+# Qnorm: fast-ish (and correct!) quantile normalization in Python.
 [![PyPI version](https://badge.fury.io/py/qnorm.svg)](https://badge.fury.io/py/qnorm)
 [![Anaconda version](https://anaconda.org/conda-forge/qnorm/badges/version.svg)](https://anaconda.org/conda-forge/qnorm)
 ![tests](https://github.com/Maarten-vd-Sande/qnorm/workflows/tests/badge.svg)
