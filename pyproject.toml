@@ -4,7 +4,6 @@ packages = ["qnorm"]
 description = "Quantile normalization"
 authors = [
     "Maarten van der Sande <maartenvandersande@hotmail.com>"]
-license = "MIT"
 url = "https://github.com/Maarten-vd-Sande/qnorm"
 
 classifiers = [
@@ -18,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Bio-Informatics"]
 
-install_requires = ["numba", "numpy"]
+install_requires = ["numba", "numpy<2.0.0"]
 python_requires = ">3.6"
 
 [metadata]
