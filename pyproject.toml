@@ -4,7 +4,6 @@ packages = ["qnorm"]
 description = "Quantile normalization"
 authors = [
     "Maarten van der Sande <maartenvandersande@hotmail.com>"]
-license = {file = "LICENSE"}
 url = "https://github.com/Maarten-vd-Sande/qnorm"
 
 classifiers = [
