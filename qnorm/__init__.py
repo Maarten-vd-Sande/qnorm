@@ -1,4 +1,5 @@
 """Top-level package for qnorm."""
+
 from .quantile_normalize import quantile_normalize
 
 __all__ = ["quantile_normalize"]

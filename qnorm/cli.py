@@ -1,4 +1,5 @@
 """Console script for qnorm."""
+
 import argparse
 import sys
 
