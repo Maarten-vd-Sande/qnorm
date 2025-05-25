@@ -5,7 +5,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:  # Allow manual triggering
 
 
 permissions:
@@ -56,13 +55,13 @@ jobs:
         files: |
           dist/*
 
-    # - name: Publish to Test PyPI
-    #   uses: pypa/gh-action-pypi-publish@release/v1
-    #   with:
-    #     repository-url: https://test.pypi.org/legacy/
-    #     password: ${{ secrets.PyPi_test }}
+    - name: Publish to Test PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        password: ${{ secrets.PyPi_test }}
 
-    # - name: Publish to PyPI
-    #   uses: pypa/gh-action-pypi-publish@release/v1
-    #   with:
-    #     password: ${{ secrets.PyPi }}
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PyPi }}
