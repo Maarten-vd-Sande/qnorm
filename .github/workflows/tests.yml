@@ -25,7 +25,7 @@ jobs:
         # Install numpy first to ensure compatible versions
         pip install --upgrade numpy
         # Force reinstall of tables to ensure binary compatibility with numpy
-        pip install --force-reinstall --no-cache-dir tables
+        pip install --force-reinstall --no-cache-dir "tables>=3.10.0"
         pip install --upgrade-strategy only-if-needed pandas pyarrow
         pip install --upgrade-strategy only-if-needed flake8 black mypy data-science-types  # code quality related
 

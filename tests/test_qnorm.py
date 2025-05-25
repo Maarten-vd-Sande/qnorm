@@ -24,7 +24,9 @@ class TestQnorm(unittest.TestCase):
             }
         )
         cls.df1.to_csv("test.csv")
-        cls.df1.to_hdf("test.hdf", key="qnorm", format="table", data_columns=True, mode="w")
+        cls.df1.to_hdf(
+            "test.hdf", key="qnorm", format="table", data_columns=True, mode="w"
+        )
         cls.df1.to_parquet("test.parquet")
 
     def test_000_numpy(self):
