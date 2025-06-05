@@ -384,10 +384,13 @@ def quantile_normalize_np(
         final_res = final_res.T
     return final_res
 
-# Fastmath NaN handling is not consistent across platforms, see https://github.com/numba/numba/issues/2919
-# However, disabling fastmath causes failure to proress in original code due to 
-# sorted_val[i, col_i] == sorted_val[i + count, col_i]) always being false according to IEEE-754
-# and thus n is never incremented and so i is also never incremented
+
+# Fastmath NaN handling is not consistent across platforms, see:
+# https://github.com/numba/numba/issues/2919
+# However, disabling fastmath causes failure to proress in original code due to
+# sorted_val[i, col_i] == sorted_val[i + count, col_i]) always being false
+# according to IEEE-754 and thus n is never incremented and so i is also never
+# incremented
 @numba.jit(nopython=True, cache=True)
 def _numba_accel_qnorm(
     qnorm: np.ndarray,
@@ -412,8 +415,10 @@ def _numba_accel_qnorm(
             # gather block of equal values
             count = 0
             acc = 0.0
-            while (i + count < n_rows and
-                   sorted_val[i, col_i] == sorted_val[i + count, col_i]):
+            while (
+                i + count < n_rows
+                and sorted_val[i, col_i] == sorted_val[i + count, col_i]
+            ):
                 acc += target[i + count]
                 count += 1
 
