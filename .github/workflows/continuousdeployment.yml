@@ -35,7 +35,7 @@ jobs:
           verbose: true
 
   publish-pypi:
-    name: Publish to PyPI
+    name: Publish
     runs-on: ubuntu-latest
     if: ${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
     steps:
@@ -55,3 +55,18 @@ jobs:
         with:
           password: ${{ secrets.QNORM_PYPI }}
           verbose: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body: |
+          ## What's Changed
+          
+          See the [changelog](CHANGELOG.md) for detailed changes.
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/*
