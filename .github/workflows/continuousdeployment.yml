@@ -16,7 +16,6 @@ jobs:
     name: Publish to Test PyPI
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ github.ref_type == 'branch' && github.ref_name == 'main' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
