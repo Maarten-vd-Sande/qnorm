@@ -16,17 +16,22 @@ jobs:
     name: Publish to Test PyPI
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install setuptools_scm build twine
+
       - name: Build package
         run: python -m build
+
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -39,17 +44,22 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install setuptools_scm build twine
+
       - name: Build package
         run: python -m build
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -61,11 +71,11 @@ jobs:
         with:
           name: Release ${{ github.ref_name }}
           body: |
-          ## What's Changed
-          
-          See the [changelog](CHANGELOG.md) for detailed changes.
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}
+            ## What's Changed
+
+            See the [changelog](CHANGELOG.md) for detailed changes.
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.ref_name }}
           draft: false
           prerelease: false
           files: |
