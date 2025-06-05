@@ -384,8 +384,11 @@ def quantile_normalize_np(
         final_res = final_res.T
     return final_res
 
-
-@numba.jit(nopython=True, fastmath=True, cache=True)
+# Fastmath NaN handling is not consistent across platforms, see https://github.com/numba/numba/issues/2919
+# However, disabling fastmath causes failure to proress in original code due to 
+# sorted_val[i, col_i] == sorted_val[i + count, col_i]) always being false according to IEEE-754
+# and thus n is never incremented and so i is also never incremented
+@numba.jit(nopython=True, cache=True)
 def _numba_accel_qnorm(
     qnorm: np.ndarray,
     sorted_idx: np.ndarray,
@@ -393,36 +396,34 @@ def _numba_accel_qnorm(
     target: np.ndarray,
 ) -> np.ndarray:
     """
-    numba accelerated "actual" qnorm normalization.
+    numba-accelerated quantile normalization with proper NaN handling.
     """
-    # get the shape of the input
-    n_rows = qnorm.shape[0]
-    n_cols = qnorm.shape[1]
+    n_rows, n_cols = qnorm.shape
 
     for col_i in range(n_cols):
         i = 0
-        # we fill out a column not from lowest index to highest index,
-        # but we fill out qnorm from lowest value to highest value
+        # fill qnorm in blocks of equal sorted_val, skipping NaNs
         while i < n_rows:
-            n = 0
-            val = 0.0
-            # since there might be duplicate numbers in a column, we search for
-            # all the indices that have these duplcate numbers. Then we take
-            # the mean of their rowmeans.
-            while (
-                i + n < n_rows
-                and sorted_val[i, col_i] == sorted_val[i + n, col_i]
-            ):
-                val += target[i + n]
-                n += 1
+            # skip NaN entries so we advance past them
+            if np.isnan(sorted_val[i, col_i]):
+                i += 1
+                continue
 
-            # fill out qnorm with our new value
-            if n > 0:
-                val /= n
-                for j in range(n):
-                    idx = sorted_idx[i + j, col_i]
-                    qnorm[idx, col_i] = val
+            # gather block of equal values
+            count = 0
+            acc = 0.0
+            while (i + count < n_rows and
+                   sorted_val[i, col_i] == sorted_val[i + count, col_i]):
+                acc += target[i + count]
+                count += 1
 
-            i += n
+            # assign the averaged value back to all positions in the block
+            if count > 0:
+                avg = acc / count
+                for k in range(count):
+                    orig_idx = sorted_idx[i + k, col_i]
+                    qnorm[orig_idx, col_i] = avg
+
+            i += count
 
     return qnorm

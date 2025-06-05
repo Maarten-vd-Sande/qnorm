@@ -11,19 +11,24 @@ import tracemalloc
 
 tracemalloc.start()
 
-df1 = pd.DataFrame(
-    {
-        "C1": {"A": 5.0, "B": 2.0, "C": 3.0, "D": 4.0},
-        "C2": {"A": 4.0, "B": 1.0, "C": 4.0, "D": 2.0},
-        "C3": {"A": 3.0, "B": 4.0, "C": 6.0, "D": 8.0},
-    }
-)
-df1.to_csv("test.csv")
-df1.to_hdf("test.hdf", key="qnorm", format="table", data_columns=True, mode="w")
-df1.to_parquet("test.parquet")
-
 
 class TestQnorm(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        """Set up test data files once for all tests."""
+        cls.df1 = pd.DataFrame(
+            {
+                "C1": {"A": 5.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                "C2": {"A": 4.0, "B": 1.0, "C": 4.0, "D": 2.0},
+                "C3": {"A": 3.0, "B": 4.0, "C": 6.0, "D": 8.0},
+            }
+        )
+        cls.df1.to_csv("test.csv")
+        cls.df1.to_hdf(
+            "test.hdf", key="qnorm", format="table", data_columns=True, mode="w"
+        )
+        cls.df1.to_parquet("test.parquet")
+
     def test_000_numpy(self):
         """
         test numpy support
