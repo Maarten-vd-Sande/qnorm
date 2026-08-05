@@ -199,7 +199,13 @@ def get_delim(table):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         delimiter = pd.read_csv(
-            table, sep=None, iterator=True, nrows=1000, comment="#", index_col=0
+            table,
+            sep=None,
+            engine="python",
+            iterator=True,
+            nrows=1000,
+            comment="#",
+            index_col=0,
         )._engine.data.dialect.delimiter
     return delimiter
 
