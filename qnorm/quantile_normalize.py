@@ -1,5 +1,6 @@
 import os
 import math
+import numbers
 from concurrent.futures import ThreadPoolExecutor
 from functools import singledispatch
 from typing import overload, Union
@@ -376,7 +377,12 @@ _TARGET_COLS = 8
 
 
 def _check_ncpus(ncpus):
-    if not ncpus >= 1:
+    # bools are integers in python, but not a number of cpus
+    if (
+        isinstance(ncpus, bool)
+        or not isinstance(ncpus, numbers.Integral)
+        or ncpus < 1
+    ):
         raise ValueError("The number of cpus needs to be a positive integer.")
 
 

@@ -7,6 +7,7 @@ earlier implementation of qnorm (see tests/make_golden.py).
 """
 
 import importlib
+import math
 import os
 import unittest
 from unittest import mock
@@ -125,6 +126,70 @@ def _assert_close(test, actual, expected, msg=""):
     np.testing.assert_allclose(
         actual, expected, rtol=rtol, atol=rtol * scale, err_msg=msg
     )
+
+
+def _extreme_array(rng, kind, shape, dtype):
+    """
+    values at the edges of the floating point range, with random signs:
+    huge: close to the maximum (for float64 small enough for the sum to fit)
+    tiny: subnormals
+    range: magnitudes spread over the whole exponent range
+    cancel: columns alternate between around +1e30 and -1e30, so that the
+        values of a rank (almost) cancel each other out
+    """
+    exponents = {
+        np.float32: {
+            "huge": (36, 38.5),
+            "tiny": (-44.5, -37),
+            "range": (-44, 38),
+        },
+        np.float64: {
+            "huge": (304, 306),
+            "tiny": (-323, -308),
+            "range": (-323, 306),
+        },
+    }
+    if kind == "cancel":
+        spread = 1e-4 if dtype == np.float32 else 1e-10
+        values = 1e30 * (1 + spread * rng.random(shape))
+        values[:, 1::2] *= -1
+    else:
+        low, high = exponents[dtype][kind]
+        values = 10 ** rng.uniform(low, high, shape)
+        values *= rng.choice([-1, 1], shape)
+    return values.astype(dtype)
+
+
+def _exact_qnorm(data):
+    """
+    Quantile normalization of float data along axis=1 with exactly rounded
+    rank means (math.fsum), plus per value how far off a correct
+    implementation can be: floating point summation in any order of the n
+    values of a rank is off by at most (n - 1) * eps/2 * sum(|values|), after
+    which the tie blocks are averaged and the result is rounded to the dtype.
+    """
+    n_rows, n_cols = data.shape
+    eps = np.finfo(np.float64).eps
+    sorted_cols = np.sort(data, axis=0)
+    ranks = sorted_cols.astype(np.float64)
+    target = np.array([math.fsum(rank) for rank in ranks]) / n_cols
+    target_tol = eps * (np.abs(ranks).sum(axis=1) + np.abs(target))
+
+    out = np.empty(data.shape)
+    tol = np.empty(data.shape)
+    for col in range(n_cols):
+        values = data[:, col]
+        los = np.searchsorted(sorted_cols[:, col], values, side="left")
+        his = np.searchsorted(sorted_cols[:, col], values, side="right")
+        for row in range(n_rows):
+            lo, hi = los[row], his[row]
+            block = target[lo:hi]
+            out[row, col] = math.fsum(block) / len(block)
+            block_tol = (len(block) + 1) * eps * np.abs(block).max()
+            tol[row, col] = target_tol[lo:hi].max() + block_tol
+    info = np.finfo(data.dtype)
+    tol += info.eps * np.abs(out) + info.smallest_subnormal
+    return out, tol
 
 
 def _special_array(dtype):
@@ -250,6 +315,40 @@ class TestEquivalence(unittest.TestCase):
             qnorm.quantile_normalize(arr.T, axis=0, target=target).T,
             _reference_qnorm(arr, target=target),
         )
+
+
+class TestExtremeValues(unittest.TestCase):
+    """
+    The rank means are summed in float64, in a fixed order that differs from
+    numpy's mean (and the summation of earlier versions of qnorm). So instead
+    of comparing against another summation, compare against the exactly
+    rounded means, with the error that any summation order can make.
+    """
+
+    def test_extreme_values(self):
+        rng = np.random.default_rng(16)
+        for dtype in [np.float32, np.float64]:
+            for kind in ["huge", "tiny", "range", "cancel"]:
+                # 21 columns: two full groups of _TARGET_COLS and a partial one
+                arr = _extreme_array(rng, kind, (500, 21), dtype)
+                expected, tol = _exact_qnorm(arr)
+                single = qnorm.quantile_normalize(arr, ncpus=1)
+                for ncpus in [1, 3]:
+                    msg = f"dtype={np.dtype(dtype).name} kind={kind}"
+                    with self.subTest(msg, ncpus=ncpus):
+                        result = qnorm.quantile_normalize(arr, ncpus=ncpus)
+                        self.assertEqual(result.dtype, dtype)
+                        error = np.abs(result.astype(np.float64) - expected)
+                        np.testing.assert_array_less(error, tol)
+                        np.testing.assert_array_equal(result, single)
+
+    def test_exact_qnorm(self):
+        """the exact reference agrees with the naive reference"""
+        rng = np.random.default_rng(17)
+        arr = _make_array(rng, "mixed", (200, 9), np.float64)
+        expected, tol = _exact_qnorm(arr)
+        np.testing.assert_allclose(expected, _reference_qnorm(arr))
+        self.assertTrue(np.all(tol < 1e-9))
 
 
 class TestInvariants(unittest.TestCase):
@@ -418,10 +517,27 @@ class TestErrors(unittest.TestCase):
                 )
 
     def test_bad_ncpus(self):
-        for ncpus in [0, -1]:
-            self.assertRaises(
-                ValueError, qnorm.quantile_normalize, self.arr, ncpus=ncpus
-            )
+        for ncpus in [0, -1, 1.5, 2.0, "2", None, True, np.float64(2)]:
+            with self.subTest(ncpus=ncpus):
+                self.assertRaises(
+                    ValueError, qnorm.quantile_normalize, self.arr, ncpus=ncpus
+                )
+                # checked before the (here non-existing) file is read
+                self.assertRaises(
+                    ValueError,
+                    qnorm.incremental_quantile_normalize,
+                    "missing.csv",
+                    "missing_out.csv",
+                    ncpus=ncpus,
+                )
+
+    def test_numpy_integer_ncpus(self):
+        expected = qnorm.quantile_normalize(self.arr)
+        for ncpus in [np.int64(2), np.int32(1), np.uint8(3)]:
+            with self.subTest(ncpus=ncpus):
+                np.testing.assert_array_equal(
+                    qnorm.quantile_normalize(self.arr, ncpus=ncpus), expected
+                )
 
 
 class TestDeterminism(unittest.TestCase):
