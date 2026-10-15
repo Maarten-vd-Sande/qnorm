@@ -1,9 +1,10 @@
 import os
 import math
+import numbers
+from concurrent.futures import ThreadPoolExecutor
 from functools import singledispatch
 from typing import overload, Union
 
-import numba
 import numpy as np
 
 from .util import (
@@ -14,7 +15,6 @@ from .util import (
     parse_csv,
     parse_hdf,
     parse_parquet,
-    _parallel_argsort,
 )
 
 try:
@@ -78,19 +78,14 @@ if pandas_import:
         target: Union[None, np.ndarray] = None,
         ncpus: int = 1,
     ) -> pd.DataFrame:
-        qn_data = data.copy()
+        values = data.values
+        # single precision stays single precision, everything else is
+        # normalized in double precision
+        if values.dtype != np.float32:
+            values = values.astype(np.float64, copy=False)
 
-        # if we use axis 0, then already transpose here, and not later
-        if axis == 0:
-            qn_data[:] = quantile_normalize_np(
-                qn_data.values.astype(float), axis, target, ncpus
-            )
-        else:
-            qn_data[:] = quantile_normalize_np(
-                qn_data.values.astype(float), axis, target, ncpus
-            )
-
-        return qn_data
+        qn_values = quantile_normalize_np(values, axis, target, ncpus)
+        return pd.DataFrame(qn_values, index=data.index, columns=data.columns)
 
     def incremental_quantile_normalize(
         infile: str,
@@ -121,6 +116,7 @@ if pandas_import:
             ncpus: The number of cpus to use. Scales diminishingly, and more
                 than four is generally not useful.
         """
+        _check_ncpus(ncpus)
         if infile.endswith((".hdf", ".h5")):
             dataformat = "hdf"
             columns, index = parse_hdf(infile)
@@ -142,9 +138,7 @@ if pandas_import:
         nr_rows = len(index)
 
         # store intermediate tables
-        tmp_vals = []
-        tmp_sorted_vals = []
-        tmp_idxs = []
+        tmp_cols = []
 
         # calculate the target (rank means)
         target = np.zeros(nr_rows)
@@ -180,36 +174,25 @@ if pandas_import:
                     )
 
                 # get the rank means
-                data, sorted_idx = _parallel_argsort(
-                    df.values, ncpus, df.values.dtype
-                )
+                if df.values.dtype == np.float32:
+                    dtype = np.float32
+                else:
+                    dtype = np.float64
+                data = _to_columns(df.values, dtype, ncpus)
                 del df
-                sorted_vals = np.take_along_axis(
-                    data,
-                    sorted_idx,
-                    axis=0,
-                )
-                rankmeans = np.mean(sorted_vals, axis=1)
+                rankmeans = _rank_means(data, ncpus)
 
                 # update the target
                 target += (rankmeans - target) * (
                     (col_end - col_start) / (col_end)
                 )
 
-                # save all our intermediate stuff
-                tmp_vals.append(
+                # save our intermediate stuff
+                tmp_cols.append(
                     tfh.get_filename(prefix="qnorm_", suffix=".npy")
                 )
-                tmp_sorted_vals.append(
-                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
-                )
-                tmp_idxs.append(
-                    tfh.get_filename(prefix="qnorm_", suffix=".npy")
-                )
-                np.save(tmp_vals[-1], data)
-                np.save(tmp_sorted_vals[-1], sorted_vals)
-                np.save(tmp_idxs[-1], sorted_idx)
-                del data, sorted_idx, sorted_vals
+                np.save(tmp_cols[-1], data)
+                del data
 
             # now that we have our target we can start normalizing in chunks
             qnorm_tmp = []
@@ -232,15 +215,12 @@ if pandas_import:
             # for each column chunk quantile normalize it onto our distribution
             for i in range(math.ceil(nr_cols / colchunksize)):
                 # read the relevant columns in
-                data = np.load(tmp_vals[i], allow_pickle=True)
-                sorted_idx = np.load(tmp_idxs[i], allow_pickle=True)
-                sorted_vals = np.load(tmp_sorted_vals[i], allow_pickle=True)
+                data = np.load(tmp_cols[i])
 
                 # quantile normalize
-                qnormed = _numba_accel_qnorm(
-                    data, sorted_idx, sorted_vals, target
-                )
-                del data, sorted_idx, sorted_vals
+                _normalize_columns(data, target, ncpus)
+                qnormed = _to_rows(data, ncpus)
+                del data
 
                 # store it in tempfile
                 col_tmpfiles = []
@@ -313,7 +293,7 @@ def quantile_normalize_np(
             f"supported, and might lead to undefined behaviour. "
             f"Please use numeric data only."
         )
-    # numba does not (yet) support smaller
+    # 32 bit data is normalized in single precision, everything else in double
     elif any(
         np.issubdtype(_data.dtype, dtype) for dtype in [np.int32, np.float32]
     ):
@@ -321,7 +301,13 @@ def quantile_normalize_np(
     else:
         dtype = np.float64
 
-    # take a transposed view of our data if axis is one
+    if _data.ndim != 2:
+        raise ValueError(
+            f"qnorm only supports 2 dimensional data, but your data has "
+            f"{_data.ndim} dimensions."
+        )
+
+    # take a transposed view of our data if axis is zero
     if axis == 0:
         _data = np.transpose(_data)
     elif axis == 1:
@@ -333,26 +319,10 @@ def quantile_normalize_np(
             f"{axis}."
         )
 
-    # sort the array, single process or multiprocessing
-    if ncpus == 1:
-        # single process sorting
-        data = _data.astype(dtype=dtype)
-        # we do the sorting outside of numba because the numpy implementation
-        # is faster, and numba does not support the axis argument.
-        sorted_idx = np.argsort(data, axis=0)
-    elif ncpus > 1:
-        # multiproces sorting
-        data, sorted_idx = _parallel_argsort(_data, ncpus, dtype)
-    else:
-        raise ValueError("The number of cpus needs to be a positive integer.")
+    _check_ncpus(ncpus)
 
-    sorted_val = np.take_along_axis(data, sorted_idx, axis=0)
-
-    if target is None:
-        # if no target supplied get the (sorted) rowmeans
-        target = np.mean(sorted_val, axis=1)
-    else:
-        # otherwise make sure target is correct data type and shape
+    if target is not None:
+        # make sure target is correct data type and shape
         if not isinstance(target, np.ndarray):
             try:
                 target = np.array(target)
@@ -365,70 +335,171 @@ def quantile_normalize_np(
                 f"The target array should be a 1-dimensionsal vector, however "
                 f"you supplied a vector with {target.ndim} dimensions"
             )
-        if target.shape[0] != data.shape[0]:
+        if target.shape[0] != _data.shape[0]:
             raise ValueError(
                 f"The target array does not contain the same amount of values "
                 f"({target.shape[0]}) as the data contains rows "
-                f"({data.shape[0]})"
+                f"({_data.shape[0]})"
             )
         if not np.issubdtype(target.dtype, np.number):
             raise ValueError(
-                f"The type of your target ({data.dtype}) is is not "
+                f"The type of your target ({target.dtype}) is is not "
                 f"supported, and might lead to undefined behaviour. "
                 f"Please use numeric data only."
             )
-        target = np.sort(target.astype(dtype=dtype))
+        target = np.sort(target.astype(dtype=dtype)).astype(np.float64)
 
-    final_res = _numba_accel_qnorm(data, sorted_idx, sorted_val, target)
+    # work on a column-major copy, so that every column is contiguous in memory
+    data = _to_columns(_data, dtype, ncpus)
+
+    if target is None:
+        # if no target supplied get the (sorted) rowmeans
+        target = _rank_means(data, ncpus)
+
+    _normalize_columns(data, target, ncpus)
+
+    # return the same memory layout as the input
+    if _data.flags.f_contiguous:
+        final_res = data.T
+    else:
+        final_res = _to_rows(data, ncpus)
+
     if axis == 0:
         final_res = final_res.T
     return final_res
 
 
-# Fastmath NaN handling is not consistent across platforms, see:
-# https://github.com/numba/numba/issues/2919
-# However, disabling fastmath causes failure to proress in original code due to
-# sorted_val[i, col_i] == sorted_val[i + count, col_i]) always being false
-# according to IEEE-754 and thus n is never incremented and so i is also never
-# incremented
-@numba.jit(nopython=True, cache=True)
-def _numba_accel_qnorm(
-    qnorm: np.ndarray,
-    sorted_idx: np.ndarray,
-    sorted_val: np.ndarray,
-    target: np.ndarray,
-) -> np.ndarray:
-    """
-    numba-accelerated quantile normalization with proper NaN handling.
-    """
-    n_rows, n_cols = qnorm.shape
+# how many bytes to copy at the same time when changing the memory layout
+_BLOCK_BYTES = 2**20
+# how many columns to sum together when calculating the target. This is fixed
+# so that the order of summation, and thus the result, does not depend on ncpus
+_TARGET_COLS = 8
 
-    for col_i in range(n_cols):
-        i = 0
-        # fill qnorm in blocks of equal sorted_val, skipping NaNs
-        while i < n_rows:
-            # skip NaN entries so we advance past them
-            if np.isnan(sorted_val[i, col_i]):
-                i += 1
+
+def _check_ncpus(ncpus):
+    # bools are integers in python, but not a number of cpus
+    if (
+        isinstance(ncpus, bool)
+        or not isinstance(ncpus, numbers.Integral)
+        or ncpus < 1
+    ):
+        raise ValueError("The number of cpus needs to be a positive integer.")
+
+
+def _parallel(func, tasks, ncpus):
+    """
+    Lazily map func over tasks with ncpus threads, results are yielded in the
+    order of tasks. numpy releases the GIL for sorting, copying and ufuncs, so
+    the threads run in parallel.
+    """
+    if ncpus == 1 or len(tasks) <= 1:
+        yield from map(func, tasks)
+    else:
+        with ThreadPoolExecutor(int(ncpus)) as pool:
+            yield from pool.map(func, tasks)
+
+
+def _row_blocks(n_rows, row_bytes):
+    rows = max(1, _BLOCK_BYTES // max(1, row_bytes))
+    return [slice(start, start + rows) for start in range(0, n_rows, rows)]
+
+
+def _to_columns(data, dtype, ncpus):
+    """
+    Column-major copy of data, so that the columns are contiguous in memory.
+    """
+    n_rows, n_cols = data.shape
+    columns = np.empty((n_cols, n_rows), dtype=dtype)
+
+    def copy(rows):
+        columns[:, rows] = data[rows].T
+
+    blocks = _row_blocks(n_rows, n_cols * columns.itemsize)
+    for _ in _parallel(copy, blocks, ncpus):
+        pass
+    return columns
+
+
+def _to_rows(columns, ncpus):
+    """
+    Row-major copy of the column-major array columns.
+    """
+    n_cols, n_rows = columns.shape
+    data = np.empty((n_rows, n_cols), dtype=columns.dtype)
+
+    def copy(rows):
+        data[rows] = columns[:, rows].T
+
+    blocks = _row_blocks(n_rows, n_cols * columns.itemsize)
+    for _ in _parallel(copy, blocks, ncpus):
+        pass
+    return data
+
+
+def _rank_means(columns, ncpus):
+    """
+    The mean of the sorted columns of the column-major array columns.
+    """
+    n_cols, n_rows = columns.shape
+
+    def sorted_sum(cols):
+        total = np.zeros(n_rows)
+        sorted_col = np.empty(n_rows, dtype=columns.dtype)
+        for col in cols:
+            np.copyto(sorted_col, columns[col])
+            sorted_col.sort()
+            total += sorted_col
+        return total
+
+    groups = [
+        range(start, min(start + _TARGET_COLS, n_cols))
+        for start in range(0, n_cols, _TARGET_COLS)
+    ]
+    rankmeans = np.zeros(n_rows)
+    for total in _parallel(sorted_sum, groups, ncpus):
+        rankmeans += total
+    return rankmeans / max(n_cols, 1)
+
+
+def _normalize_columns(columns, target, ncpus):
+    """
+    Quantile normalize the column-major array columns in-place onto the
+    (sorted) target. Tied values all get the mean of the target over the ranks
+    they occupy, and NaNs are left as is.
+    """
+    n_cols, n_rows = columns.shape
+    nan = columns.dtype.type(np.nan)
+
+    def normalize(cols):
+        sorted_col = np.empty(n_rows, dtype=columns.dtype)
+        is_start = np.empty(n_rows, dtype=bool)
+        for col in cols:
+            column = columns[col]
+            sorted_idx = np.argsort(column)
+            np.take(column, sorted_idx, out=sorted_col)
+
+            # NaNs are sorted to the end, and are skipped
+            n_values = int(np.searchsorted(sorted_col, nan))
+            if n_values == 0:
                 continue
+            values = sorted_col[:n_values]
 
-            # gather block of equal values
-            count = 0
-            acc = 0.0
-            while (
-                i + count < n_rows
-                and sorted_val[i, col_i] == sorted_val[i + count, col_i]
-            ):
-                acc += target[i + count]
-                count += 1
+            # find the blocks of tied values
+            starts = is_start[:n_values]
+            starts[0] = True
+            np.not_equal(values[1:], values[:-1], out=starts[1:])
+            if np.count_nonzero(starts) == n_values:
+                # no ties, each value simply gets its target value
+                np.put(column, sorted_idx[:n_values], target[:n_values])
+                continue
+            starts = np.flatnonzero(starts)
+            counts = np.diff(starts, append=n_values)
 
-            # assign the averaged value back to all positions in the block
-            if count > 0:
-                avg = acc / count
-                for k in range(count):
-                    orig_idx = sorted_idx[i + k, col_i]
-                    qnorm[orig_idx, col_i] = avg
+            # each value gets the mean of the target over its block
+            means = np.add.reduceat(target[:n_values], starts) / counts
+            np.put(column, sorted_idx[:n_values], np.repeat(means, counts))
 
-            i += count
-
-    return qnorm
+    ncpus = int(min(ncpus, max(n_cols, 1)))
+    tasks = [range(start, n_cols, ncpus) for start in range(ncpus)]
+    for _ in _parallel(normalize, tasks, ncpus):
+        pass

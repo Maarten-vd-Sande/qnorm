@@ -6,7 +6,7 @@
 [![monthd](https://img.shields.io/pypi/dm/qnorm)](https://img.shields.io/pypi/dm/qnorm)
 [![totald](https://anaconda.org/conda-forge/qnorm/badges/downloads.svg)](https://anaconda.org/conda-forge/qnorm/badges/downloads.svg)
 
-Quantile normalization made easy! This tool was developed as the current (Python) implementations scattered across the web do not correctly resolve collisions/ties in the ranks. Properly resolving rank ties is important when ties happen frequently, such as when working with discrete numbers (integers) in count tables. This implementation should be relatively *fast*, and can use multiple cores to sort the columns and tie-resolvement is accelerated by numba.
+Quantile normalization made easy! This tool was developed as the current (Python) implementations scattered across the web do not correctly resolve collisions/ties in the ranks. Properly resolving rank ties is important when ties happen frequently, such as when working with discrete numbers (integers) in count tables. This implementation should be relatively *fast*, and can use multiple cores.
 
 ## Code example
 
@@ -88,13 +88,13 @@ qnorm.quantile_normalize(test, ncpus=4)
 ```console
 user@comp:~$ /usr/bin/time --verbose python small_qnorm_script.py |& grep -P "(wall clock|Maximum resident set size)"
 
-Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.52
-Maximum resident set size (kbytes): 2768884
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.93
+Maximum resident set size (kbytes): 1396868
 ```
 
-It takes only 7.5 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
+It takes only 2 seconds to initialize our table and quantile normalize it. I think that's **pretty fast**!
 
-The test array we made consists of `100 * 1.000.000 = 100.000.000` single point precision integers, so four bytes each (400.000.000 bytes, 0.4 gigabytes). The memory footprint of our script is 0.27 gigabytes, around 7 times our input. Unfortunately that makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases. If memory usage is a problem take a look at the [low-memory implementation](#memory-efficient-quantile-norm).
+The test array we made consists of `100 * 1.000.000 = 100.000.000` single point precision integers, so four bytes each (400.000.000 bytes, 0.4 gigabytes). The memory footprint of our script is 1.4 gigabytes, around 3.5 times our input (the input itself, a working copy, and the output). That makes qnorm **a bit memory hungry**, but that should not be a problem in 99% of the cases. If memory usage is a problem take a look at the [low-memory implementation](#memory-efficient-quantile-norm).
 
 ### Scaling of ncpus
 
