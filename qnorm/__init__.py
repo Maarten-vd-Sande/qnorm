@@ -13,4 +13,4 @@ except ImportError:
 
 __author__ = "Maarten van der Sande"
 __email__ = "maartenvandersande[at]gmail.com"
-__version__ = "0.9.0"
+__version__ = "1.0.0"
